@@ -5,11 +5,12 @@ from typing import Callable
 from app.ui import BG_COLOR, TEXT_COLOR, FlatButton
 
 
-class EmployeesPage(tk.Frame):
+class StudentsPage(tk.Frame):
     def __init__(
         self,
         master: tk.Misc,
         on_add: Callable[[], None],
+        on_groups: Callable[[], None],
         on_back: Callable[[], None],
         on_select: Callable[[int], None],
         on_filter_changed: Callable[[str, str], None],
@@ -20,7 +21,7 @@ class EmployeesPage(tk.Frame):
 
         title = tk.Label(
             self,
-            text="Сотрудники",
+            text="Студенты",
             font=("Segoe UI", 24, "bold"),
             bg=BG_COLOR,
             fg=TEXT_COLOR,
@@ -44,12 +45,12 @@ class EmployeesPage(tk.Frame):
         )
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
 
-        self.filter_var = tk.StringVar(value="Все сотрудники")
+        self.filter_var = tk.StringVar(value="Все студенты")
         filter_combo = ttk.Combobox(
             filter_container,
             textvariable=self.filter_var,
             state="readonly",
-            values=["Все сотрудники", "Просроченные", "Истекают (2 недели)"],
+            values=["Все студенты", "Просроченные", "Истекают (2 недели)"],
             width=22,
             font=("Segoe UI", 10),
         )
@@ -59,25 +60,25 @@ class EmployeesPage(tk.Frame):
         table_container = tk.Frame(self, bg=BG_COLOR)
         table_container.pack(fill=tk.BOTH, expand=True, padx=30, pady=10)
 
-        columns = ("fio", "affiliation")
-        self.employees_table = ttk.Treeview(
+        columns = ("fio", "group_name")
+        self.table = ttk.Treeview(
             table_container,
             columns=columns,
             show="headings",
             height=14,
         )
-        self.employees_table.heading("fio", text="ФИО")
-        self.employees_table.heading("affiliation", text="Принадлежность")
-        self.employees_table.column("fio", width=620, anchor=tk.W)
-        self.employees_table.column("affiliation", width=240, anchor=tk.CENTER)
-        self.employees_table.bind("<Double-1>", self._on_double_click)
+        self.table.heading("fio", text="ФИО")
+        self.table.heading("group_name", text="Группа")
+        self.table.column("fio", width=620, anchor=tk.W)
+        self.table.column("group_name", width=240, anchor=tk.CENTER)
+        self.table.bind("<Double-1>", self._on_double_click)
 
         y_scroll = ttk.Scrollbar(
-            table_container, orient=tk.VERTICAL, command=self.employees_table.yview
+            table_container, orient=tk.VERTICAL, command=self.table.yview
         )
-        self.employees_table.configure(yscrollcommand=y_scroll.set)
+        self.table.configure(yscrollcommand=y_scroll.set)
 
-        self.employees_table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
         actions = tk.Frame(self, bg=BG_COLOR)
@@ -101,6 +102,15 @@ class EmployeesPage(tk.Frame):
         )
         open_button.pack(side=tk.LEFT, padx=(12, 0))
 
+        groups_button = FlatButton(
+            actions,
+            primary=False,
+            text="Группы",
+            width=14,
+            command=on_groups,
+        )
+        groups_button.pack(side=tk.LEFT, padx=(12, 0))
+
         back_button = FlatButton(
             actions,
             primary=False,
@@ -111,20 +121,20 @@ class EmployeesPage(tk.Frame):
         back_button.pack(side=tk.LEFT, padx=(12, 0))
 
     def set_rows(self, rows: list[tuple[int, str, str]]) -> None:
-        for item in self.employees_table.get_children():
-            self.employees_table.delete(item)
+        for item in self.table.get_children():
+            self.table.delete(item)
 
-        for id, fio, affiliation in rows:
-            self.employees_table.insert("", tk.END, iid=str(id), values=(fio, affiliation))
+        for id, fio, group_name in rows:
+            self.table.insert("", tk.END, iid=str(id), values=(fio, group_name))
 
     def _on_double_click(self, event: tk.Event) -> None:
         self._on_open_selected()
 
     def _on_open_selected(self) -> None:
-        selection = self.employees_table.selection()
+        selection = self.table.selection()
         if selection:
-            employee_id = int(selection[0])
-            self.on_select(employee_id)
+            student_id = int(selection[0])
+            self.on_select(student_id)
 
     def _trigger_filter(self, *args: object) -> None:
         self.on_filter_changed(self.search_var.get(), self.filter_var.get())

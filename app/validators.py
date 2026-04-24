@@ -125,3 +125,47 @@ def validate_employee_payload(payload: dict[str, str]) -> list[str]:
             errors.append(f"Поле '{FIELD_LABELS[field]}' не должно превышать {max_len} символов.")
 
     return errors
+
+
+STUDENT_FIELD_LABELS = FIELD_LABELS.copy()
+del STUDENT_FIELD_LABELS["affiliation"]
+STUDENT_FIELD_LABELS["group_id"] = "Группа"
+
+def validate_student_payload(payload: dict[str, str]) -> list[str]:
+    errors: list[str] = []
+
+    for field, label in STUDENT_FIELD_LABELS.items():
+        if not payload.get(field, "").strip():
+            errors.append(f"Поле '{label}' обязательно.")
+
+    for field in LETTER_FIELDS:
+        value = payload.get(field, "")
+        if value and not value.isalpha():
+            errors.append(f"Поле '{STUDENT_FIELD_LABELS[field]}' должно содержать только буквы.")
+
+    for field in DATE_FIELDS:
+        value = payload.get(field, "")
+        if value and not validate_date(value):
+            errors.append(
+                f"Поле '{STUDENT_FIELD_LABELS[field]}' должно быть в формате ДД.ММ.ГГГГ и корректной датой."
+            )
+
+    for field, exact_len in DIGITS_EXACT_LENGTH.items():
+        value = payload.get(field, "")
+        if value and (not value.isdigit() or len(value) != exact_len):
+            errors.append(
+                f"Поле '{STUDENT_FIELD_LABELS[field]}' должно содержать ровно {exact_len} цифр."
+            )
+
+    for field, max_len in FIELD_MAX_LENGTHS.items():
+        if field == "affiliation": continue
+        value = payload.get(field, "")
+        if len(value) > max_len:
+            errors.append(f"Поле '{STUDENT_FIELD_LABELS[field]}' не должно превышать {max_len} символов.")
+
+    # Validate group_id is a valid integer
+    group_id = payload.get("group_id", "")
+    if group_id and not group_id.isdigit():
+         errors.append("Некорректный ID группы.")
+
+    return errors

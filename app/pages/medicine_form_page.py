@@ -1,28 +1,14 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox
 from typing import Callable
 
-from app.ui import (
-    BG_COLOR,
-    ENTRY_BG,
-    ENTRY_FG,
-    TEXT_COLOR,
-    TEXT_MUTED,
-    FlatButton,
-)
-from app.validators import (
-    AFFILIATION_UI_VALUES,
-    DATE_FIELDS,
-    FIELD_LABELS,
-    allow_typed_value,
-    normalize_affiliation,
-    validate_employee_payload,
-)
+from app.ui import BG_COLOR, TEXT_COLOR, ENTRY_BG, ENTRY_FG, FlatButton
+from app.validators import DATE_FIELDS, allow_typed_value
 
 DATE_PLACEHOLDER = "__.__.____"
 
 
-class EmployeeFormPage(tk.Frame):
+class MedicineFormPage(tk.Frame):
     def __init__(
         self,
         master: tk.Misc,
@@ -34,11 +20,11 @@ class EmployeeFormPage(tk.Frame):
         self._on_cancel = on_cancel
         self._validate_cmd = (self.register(self._validate_input), "%P", "%W")
         self.form_vars: dict[str, tk.StringVar] = {}
-        self.form_entries: dict[str, tk.Entry] = {}
+        self.form_entries: dict[str, tk.Widget] = {}
 
         title = tk.Label(
             self,
-            text="Добавление сотрудника",
+            text="Добавление лекарства",
             font=("Segoe UI", 24, "bold"),
             bg=BG_COLOR,
             fg=TEXT_COLOR,
@@ -46,21 +32,10 @@ class EmployeeFormPage(tk.Frame):
         title.pack(pady=(30, 20))
 
         fields: list[tuple[str, str]] = [
-            ("last_name", FIELD_LABELS["last_name"]),
-            ("first_name", FIELD_LABELS["first_name"]),
-            ("middle_name", FIELD_LABELS["middle_name"]),
-            ("birth_date", FIELD_LABELS["birth_date"]),
-            ("affiliation", FIELD_LABELS["affiliation"]),
-            ("passport_series", FIELD_LABELS["passport_series"]),
-            ("passport_number", FIELD_LABELS["passport_number"]),
-            ("passport_issued_by", FIELD_LABELS["passport_issued_by"]),
-            ("passport_issue_date", FIELD_LABELS["passport_issue_date"]),
-            ("passport_department_code", FIELD_LABELS["passport_department_code"]),
-            ("oms", FIELD_LABELS["oms"]),
-            ("address", FIELD_LABELS["address"]),
-            ("sanminimum_date", FIELD_LABELS["sanminimum_date"]),
-            ("medical_exam_date", FIELD_LABELS["medical_exam_date"]),
-            ("fluorography_date", FIELD_LABELS["fluorography_date"]),
+            ("name", "Название препарата"),
+            ("quantity", "Количество"),
+            ("unit", "Единицы измерения (шт, уп, амп и т.д.)"),
+            ("expiration_date", "Срок годности"),
         ]
 
         form_container = tk.Frame(self, bg=BG_COLOR)
@@ -89,42 +64,35 @@ class EmployeeFormPage(tk.Frame):
             var = tk.StringVar()
             self.form_vars[key] = var
 
-            if key == "affiliation":
-                field = ttk.Combobox(
-                    form_container,
-                    textvariable=var,
-                    state="readonly",
-                    values=AFFILIATION_UI_VALUES,
-                )
-                field.current(0)
-            else:
-                field = tk.Entry(
-                    form_container,
-                    textvariable=var,
-                    font=("Segoe UI", 10),
-                    validate="key",
-                    validatecommand=self._validate_cmd,
-                    name=f"field_{key}",
-                    bg=ENTRY_BG,
-                    fg=ENTRY_FG,
-                    relief=tk.SOLID,
-                    borderwidth=1,
-                )
-                self.form_entries[key] = field
-                if key in DATE_FIELDS:
-                    field.bind("<FocusIn>", lambda _event, k=key: self._on_date_focus_in(k))
-                    field.bind("<FocusOut>", lambda _event, k=key: self._on_date_focus_out(k))
-                    field.bind("<KeyPress>", lambda event, k=key: self._on_date_keypress(event, k))
-                    field.bind("<Control-v>", lambda event, k=key: self._on_date_paste(event, k))
-                    field.bind("<<Paste>>", lambda event, k=key: self._on_date_paste(event, k))
+            field = tk.Entry(
+                form_container,
+                textvariable=var,
+                font=("Segoe UI", 10),
+                validate="key",
+                validatecommand=self._validate_cmd,
+                name=f"field_{key}",
+                bg=ENTRY_BG,
+                fg=ENTRY_FG,
+                relief=tk.SOLID,
+                borderwidth=1,
+            )
+            self.form_entries[key] = field
+            
+            if key == "expiration_date":
+                field.bind("<FocusIn>", lambda _event, k=key: self._on_date_focus_in(k))
+                field.bind("<FocusOut>", lambda _event, k=key: self._on_date_focus_out(k))
+                field.bind("<KeyPress>", lambda event, k=key: self._on_date_keypress(event, k))
+                field.bind("<Control-v>", lambda event, k=key: self._on_date_paste(event, k))
+                field.bind("<<Paste>>", lambda event, k=key: self._on_date_paste(event, k))
+                
             field.grid(row=row, column=input_col, sticky="ew", padx=(0, 24), pady=8)
 
         hint = tk.Label(
             self,
-            text="Формат дат: ДД.ММ.ГГГГ",
+            text="Формат даты: ДД.ММ.ГГГГ",
             font=("Segoe UI", 9, "italic"),
             bg=BG_COLOR,
-            fg=TEXT_MUTED,
+            fg="#7f8c8d",
         )
         hint.pack(anchor="w", padx=32, pady=(0, 10))
 
@@ -151,9 +119,7 @@ class EmployeeFormPage(tk.Frame):
 
     def reset_form(self) -> None:
         for key, var in self.form_vars.items():
-            if key == "affiliation":
-                var.set(AFFILIATION_UI_VALUES[0])
-            elif key in DATE_FIELDS:
+            if key == "expiration_date":
                 var.set(DATE_PLACEHOLDER)
             else:
                 var.set("")
@@ -162,18 +128,30 @@ class EmployeeFormPage(tk.Frame):
         field_name = widget_path.split(".")[-1].replace("field_", "")
         if field_name not in self.form_vars:
             return True
-        return allow_typed_value(field_name, proposed_value)
+        if field_name == "quantity":
+            if proposed_value and not proposed_value.isdigit():
+                return False
+        return True
 
     def _submit(self) -> None:
         data = {key: var.get().strip() for key, var in self.form_vars.items()}
-        for date_field in DATE_FIELDS:
-            if data[date_field] == DATE_PLACEHOLDER:
-                data[date_field] = ""
-        data["affiliation"] = normalize_affiliation(data["affiliation"])
+        if data["expiration_date"] == DATE_PLACEHOLDER:
+            data["expiration_date"] = ""
+            
+        errors = []
+        if not data["name"]:
+            errors.append("Введите название препарата.")
+        if not data["quantity"]:
+            errors.append("Введите количество.")
+        elif not data["quantity"].isdigit():
+            errors.append("Количество должно быть числом.")
+        if not data["unit"]:
+            errors.append("Введите единицы измерения.")
+        if not data["expiration_date"] or len(data["expiration_date"]) != 10:
+            errors.append("Введите корректный срок годности (ДД.ММ.ГГГГ).")
 
-        errors = validate_employee_payload(data)
         if errors:
-            messagebox.showwarning("Ошибка ввода", "\n".join(errors[:5]))
+            messagebox.showwarning("Ошибка ввода", "\n".join(errors))
             return
 
         self._on_save(data)
@@ -206,13 +184,7 @@ class EmployeeFormPage(tk.Frame):
     def _extract_digits(self, value: str) -> str:
         return "".join(char for char in value if char.isdigit())[:8]
 
-    def _replace_digits_range(
-        self,
-        digits: str,
-        start_digit: int,
-        end_digit: int,
-        replacement: str = "",
-    ) -> str:
+    def _replace_digits_range(self, digits: str, start_digit: int, end_digit: int, replacement: str = "") -> str:
         return (digits[:start_digit] + replacement + digits[end_digit:])[:8]
 
     def _apply_date_digits(self, field_name: str, digits: str, caret_digit_index: int) -> str:
@@ -222,7 +194,7 @@ class EmployeeFormPage(tk.Frame):
 
         entry = self.form_entries[field_name]
         safe_digit_index = max(0, min(caret_digit_index, len(digits)))
-        entry.icursor(self._digit_to_display_index(safe_digit_index))
+        entry.icursor(self._digit_to_display_index(safe_digit_index)) # type: ignore
         return "break"
 
     def _on_date_keypress(self, event: tk.Event, field_name: str) -> str | None:
@@ -232,14 +204,14 @@ class EmployeeFormPage(tk.Frame):
             current_value = ""
 
         digits = self._extract_digits(current_value)
-        selection_exists = entry.selection_present()
+        selection_exists = entry.selection_present() # type: ignore
         if selection_exists:
-            sel_start = entry.index("sel.first")
-            sel_end = entry.index("sel.last")
+            sel_start = entry.index("sel.first") # type: ignore
+            sel_end = entry.index("sel.last") # type: ignore
             start_digit = self._display_to_digit_index(current_value, sel_start)
             end_digit = self._display_to_digit_index(current_value, sel_end)
         else:
-            caret_display = entry.index(tk.INSERT)
+            caret_display = entry.index(tk.INSERT) # type: ignore
             start_digit = self._display_to_digit_index(current_value, caret_display)
             end_digit = start_digit
 
@@ -295,14 +267,14 @@ class EmployeeFormPage(tk.Frame):
         if not pasted_digits:
             return "break"
 
-        selection_exists = entry.selection_present()
+        selection_exists = entry.selection_present() # type: ignore
         if selection_exists:
-            sel_start = entry.index("sel.first")
-            sel_end = entry.index("sel.last")
+            sel_start = entry.index("sel.first") # type: ignore
+            sel_end = entry.index("sel.last") # type: ignore
             start_digit = self._display_to_digit_index(current_value, sel_start)
             end_digit = self._display_to_digit_index(current_value, sel_end)
         else:
-            caret_display = entry.index(tk.INSERT)
+            caret_display = entry.index(tk.INSERT) # type: ignore
             start_digit = self._display_to_digit_index(current_value, caret_display)
             end_digit = start_digit
 

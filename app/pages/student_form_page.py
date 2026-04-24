@@ -11,18 +11,16 @@ from app.ui import (
     FlatButton,
 )
 from app.validators import (
-    AFFILIATION_UI_VALUES,
     DATE_FIELDS,
-    FIELD_LABELS,
+    STUDENT_FIELD_LABELS as FIELD_LABELS,
     allow_typed_value,
-    normalize_affiliation,
-    validate_employee_payload,
+    validate_student_payload,
 )
 
 DATE_PLACEHOLDER = "__.__.____"
 
 
-class EmployeeFormPage(tk.Frame):
+class StudentFormPage(tk.Frame):
     def __init__(
         self,
         master: tk.Misc,
@@ -34,11 +32,13 @@ class EmployeeFormPage(tk.Frame):
         self._on_cancel = on_cancel
         self._validate_cmd = (self.register(self._validate_input), "%P", "%W")
         self.form_vars: dict[str, tk.StringVar] = {}
-        self.form_entries: dict[str, tk.Entry] = {}
+        self.form_entries: dict[str, tk.Widget] = {}
+        self.group_mapping: dict[str, str] = {}
+        self.group_combobox: ttk.Combobox | None = None
 
         title = tk.Label(
             self,
-            text="Добавление сотрудника",
+            text="Добавление студента",
             font=("Segoe UI", 24, "bold"),
             bg=BG_COLOR,
             fg=TEXT_COLOR,
@@ -50,7 +50,7 @@ class EmployeeFormPage(tk.Frame):
             ("first_name", FIELD_LABELS["first_name"]),
             ("middle_name", FIELD_LABELS["middle_name"]),
             ("birth_date", FIELD_LABELS["birth_date"]),
-            ("affiliation", FIELD_LABELS["affiliation"]),
+            ("group_id", FIELD_LABELS["group_id"]),
             ("passport_series", FIELD_LABELS["passport_series"]),
             ("passport_number", FIELD_LABELS["passport_number"]),
             ("passport_issued_by", FIELD_LABELS["passport_issued_by"]),
@@ -89,14 +89,14 @@ class EmployeeFormPage(tk.Frame):
             var = tk.StringVar()
             self.form_vars[key] = var
 
-            if key == "affiliation":
+            if key == "group_id":
                 field = ttk.Combobox(
                     form_container,
                     textvariable=var,
                     state="readonly",
-                    values=AFFILIATION_UI_VALUES,
                 )
-                field.current(0)
+                self.group_combobox = field
+                self.form_entries[key] = field
             else:
                 field = tk.Entry(
                     form_container,
@@ -149,10 +149,22 @@ class EmployeeFormPage(tk.Frame):
         )
         cancel_button.pack(side=tk.LEFT, padx=(12, 0))
 
+    def set_groups(self, groups: list[tuple[int, str]]) -> None:
+        self.group_mapping = {name: str(id) for id, name in groups}
+        if self.group_combobox:
+            self.group_combobox["values"] = list(self.group_mapping.keys())
+            if self.group_mapping:
+                self.group_combobox.current(0)
+            else:
+                self.form_vars["group_id"].set("")
+
     def reset_form(self) -> None:
         for key, var in self.form_vars.items():
-            if key == "affiliation":
-                var.set(AFFILIATION_UI_VALUES[0])
+            if key == "group_id":
+                if self.group_combobox and self.group_mapping:
+                    self.group_combobox.current(0)
+                else:
+                    var.set("")
             elif key in DATE_FIELDS:
                 var.set(DATE_PLACEHOLDER)
             else:
@@ -169,9 +181,11 @@ class EmployeeFormPage(tk.Frame):
         for date_field in DATE_FIELDS:
             if data[date_field] == DATE_PLACEHOLDER:
                 data[date_field] = ""
-        data["affiliation"] = normalize_affiliation(data["affiliation"])
+        
+        group_name = data["group_id"]
+        data["group_id"] = self.group_mapping.get(group_name, "")
 
-        errors = validate_employee_payload(data)
+        errors = validate_student_payload(data)
         if errors:
             messagebox.showwarning("Ошибка ввода", "\n".join(errors[:5]))
             return
@@ -222,7 +236,7 @@ class EmployeeFormPage(tk.Frame):
 
         entry = self.form_entries[field_name]
         safe_digit_index = max(0, min(caret_digit_index, len(digits)))
-        entry.icursor(self._digit_to_display_index(safe_digit_index))
+        entry.icursor(self._digit_to_display_index(safe_digit_index)) # type: ignore
         return "break"
 
     def _on_date_keypress(self, event: tk.Event, field_name: str) -> str | None:
@@ -232,14 +246,14 @@ class EmployeeFormPage(tk.Frame):
             current_value = ""
 
         digits = self._extract_digits(current_value)
-        selection_exists = entry.selection_present()
+        selection_exists = entry.selection_present() # type: ignore
         if selection_exists:
-            sel_start = entry.index("sel.first")
-            sel_end = entry.index("sel.last")
+            sel_start = entry.index("sel.first") # type: ignore
+            sel_end = entry.index("sel.last") # type: ignore
             start_digit = self._display_to_digit_index(current_value, sel_start)
             end_digit = self._display_to_digit_index(current_value, sel_end)
         else:
-            caret_display = entry.index(tk.INSERT)
+            caret_display = entry.index(tk.INSERT) # type: ignore
             start_digit = self._display_to_digit_index(current_value, caret_display)
             end_digit = start_digit
 
@@ -295,14 +309,14 @@ class EmployeeFormPage(tk.Frame):
         if not pasted_digits:
             return "break"
 
-        selection_exists = entry.selection_present()
+        selection_exists = entry.selection_present() # type: ignore
         if selection_exists:
-            sel_start = entry.index("sel.first")
-            sel_end = entry.index("sel.last")
+            sel_start = entry.index("sel.first") # type: ignore
+            sel_end = entry.index("sel.last") # type: ignore
             start_digit = self._display_to_digit_index(current_value, sel_start)
             end_digit = self._display_to_digit_index(current_value, sel_end)
         else:
-            caret_display = entry.index(tk.INSERT)
+            caret_display = entry.index(tk.INSERT) # type: ignore
             start_digit = self._display_to_digit_index(current_value, caret_display)
             end_digit = start_digit
 

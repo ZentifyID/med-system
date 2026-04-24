@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
-from typing import Callable
+from typing import Callable, cast
 
 from app.ui import (
     BG_COLOR,
@@ -22,28 +22,35 @@ from app.validators import (
 DATE_PLACEHOLDER = "__.__.____"
 
 
-class EmployeeFormPage(tk.Frame):
+class EmployeeViewPage(tk.Frame):
     def __init__(
         self,
         master: tk.Misc,
-        on_save: Callable[[dict[str, str]], None],
+        on_save: Callable[[int, dict[str, str]], None],
+        on_delete: Callable[[int], None],
         on_cancel: Callable[[], None],
     ) -> None:
         super().__init__(master, bg=BG_COLOR)
         self._on_save = on_save
+        self._on_delete = on_delete
         self._on_cancel = on_cancel
         self._validate_cmd = (self.register(self._validate_input), "%P", "%W")
-        self.form_vars: dict[str, tk.StringVar] = {}
-        self.form_entries: dict[str, tk.Entry] = {}
 
-        title = tk.Label(
+        self.form_vars: dict[str, tk.StringVar] = {}
+        self.form_entries: dict[str, tk.Widget] = {}
+        self.form_labels: dict[str, tk.Label] = {}
+        self.original_data: dict[str, str] | None = None
+        self.employee_id: int | None = None
+        self.is_edit_mode = False
+
+        self.title_label = tk.Label(
             self,
-            text="Добавление сотрудника",
+            text="Просмотр сотрудника",
             font=("Segoe UI", 24, "bold"),
             bg=BG_COLOR,
             fg=TEXT_COLOR,
         )
-        title.pack(pady=(30, 20))
+        self.title_label.pack(pady=(20, 12))
 
         fields: list[tuple[str, str]] = [
             ("last_name", FIELD_LABELS["last_name"]),
@@ -63,12 +70,12 @@ class EmployeeFormPage(tk.Frame):
             ("fluorography_date", FIELD_LABELS["fluorography_date"]),
         ]
 
-        form_container = tk.Frame(self, bg=BG_COLOR)
-        form_container.pack(fill=tk.BOTH, expand=True, padx=30, pady=10)
+        self.form_container = tk.Frame(self, bg=BG_COLOR)
+        self.form_container.pack(fill=tk.BOTH, expand=True, padx=30, pady=10)
 
         for i in range(2):
-            form_container.grid_columnconfigure(i * 2, weight=0)
-            form_container.grid_columnconfigure(i * 2 + 1, weight=1)
+            self.form_container.grid_columnconfigure(i * 2, weight=0)
+            self.form_container.grid_columnconfigure(i * 2 + 1, weight=1)
 
         left_count = (len(fields) + 1) // 2
         for idx, (key, label) in enumerate(fields):
@@ -78,7 +85,7 @@ class EmployeeFormPage(tk.Frame):
             input_col = label_col + 1
 
             tk.Label(
-                form_container,
+                self.form_container,
                 text=label,
                 font=("Segoe UI", 10),
                 bg=BG_COLOR,
@@ -89,17 +96,27 @@ class EmployeeFormPage(tk.Frame):
             var = tk.StringVar()
             self.form_vars[key] = var
 
+            value_label = tk.Label(
+                self.form_container,
+                textvariable=var,
+                font=("Segoe UI", 10),
+                bg=BG_COLOR,
+                fg=TEXT_COLOR,
+                anchor="w",
+            )
+            value_label.grid(row=row, column=input_col, sticky="ew", padx=(0, 24), pady=8)
+            self.form_labels[key] = value_label
+
             if key == "affiliation":
                 field = ttk.Combobox(
-                    form_container,
+                    self.form_container,
                     textvariable=var,
                     state="readonly",
                     values=AFFILIATION_UI_VALUES,
                 )
-                field.current(0)
             else:
                 field = tk.Entry(
-                    form_container,
+                    self.form_container,
                     textvariable=var,
                     font=("Segoe UI", 10),
                     validate="key",
@@ -110,14 +127,13 @@ class EmployeeFormPage(tk.Frame):
                     relief=tk.SOLID,
                     borderwidth=1,
                 )
-                self.form_entries[key] = field
                 if key in DATE_FIELDS:
                     field.bind("<FocusIn>", lambda _event, k=key: self._on_date_focus_in(k))
                     field.bind("<FocusOut>", lambda _event, k=key: self._on_date_focus_out(k))
                     field.bind("<KeyPress>", lambda event, k=key: self._on_date_keypress(event, k))
                     field.bind("<Control-v>", lambda event, k=key: self._on_date_paste(event, k))
                     field.bind("<<Paste>>", lambda event, k=key: self._on_date_paste(event, k))
-            field.grid(row=row, column=input_col, sticky="ew", padx=(0, 24), pady=8)
+            self.form_entries[key] = field
 
         hint = tk.Label(
             self,
@@ -128,35 +144,113 @@ class EmployeeFormPage(tk.Frame):
         )
         hint.pack(anchor="w", padx=32, pady=(0, 10))
 
-        actions = tk.Frame(self, bg=BG_COLOR)
-        actions.pack(fill=tk.X, padx=30, pady=(10, 30))
+        self.actions = tk.Frame(self, bg=BG_COLOR)
+        self.actions.pack(fill=tk.X, padx=30, pady=(10, 30))
 
-        save_button = FlatButton(
-            actions,
+        self.edit_button = FlatButton(
+            self.actions,
+            primary=True,
+            text="Изменить",
+            width=14,
+            command=self._toggle_edit_mode,
+        )
+        self.edit_button.pack(side=tk.LEFT)
+
+        self.delete_button = FlatButton(
+            self.actions,
+            primary=False,
+            text="Удалить",
+            width=14,
+            command=self._delete_employee,
+        )
+        self.delete_button.pack(side=tk.LEFT, padx=(12, 0))
+
+        self.back_button = FlatButton(
+            self.actions,
+            primary=False,
+            text="Назад",
+            width=14,
+            command=self._on_cancel,
+        )
+        self.back_button.pack(side=tk.LEFT, padx=(12, 0))
+
+        self.save_button = FlatButton(
+            self.actions,
             primary=True,
             text="Сохранить",
             width=14,
             command=self._submit,
         )
-        save_button.pack(side=tk.LEFT)
 
-        cancel_button = FlatButton(
-            actions,
+        self.cancel_button = FlatButton(
+            self.actions,
             primary=False,
             text="Отмена",
             width=14,
-            command=self._on_cancel,
+            command=self._cancel_edit,
         )
-        cancel_button.pack(side=tk.LEFT, padx=(12, 0))
 
-    def reset_form(self) -> None:
+    def set_employee_data(self, data: dict[str, str]) -> None:
+        self.employee_id = int(data["id"])
+        self.original_data = data.copy()
+        
+        fio = f"{data.get('last_name', '')} {data.get('first_name', '')}"
+        if data.get('middle_name'):
+            fio += f" {data['middle_name']}"
+        self.title_label.config(text=f"Сотрудник: {fio.strip()}")
+        
+        self._update_form_vars(data)
+        if self.is_edit_mode:
+            self._toggle_edit_mode()
+
+    def _update_form_vars(self, data: dict[str, str]) -> None:
         for key, var in self.form_vars.items():
+            value = data.get(key, "")
             if key == "affiliation":
-                var.set(AFFILIATION_UI_VALUES[0])
-            elif key in DATE_FIELDS:
-                var.set(DATE_PLACEHOLDER)
+                var.set(AFFILIATION_UI_VALUES[0] if value == "основной" else AFFILIATION_UI_VALUES[1])
             else:
-                var.set("")
+                var.set(value)
+
+    def _toggle_edit_mode(self) -> None:
+        self.is_edit_mode = not self.is_edit_mode
+        if self.is_edit_mode:
+            self.edit_button.pack_forget()
+            self.delete_button.pack_forget()
+            self.back_button.pack_forget()
+            self.save_button.pack(side=tk.LEFT)
+            self.cancel_button.pack(side=tk.LEFT, padx=(10, 0))
+
+            for key, label_widget in self.form_labels.items():
+                grid_info = label_widget.grid_info()
+                label_widget.grid_remove()
+                entry_widget = self.form_entries[key]
+                entry_widget.grid(
+                    row=grid_info["row"],
+                    column=grid_info["column"],
+                    sticky="ew",
+                    padx=(0, 18),
+                    pady=6,
+                )
+        else:
+            self.save_button.pack_forget()
+            self.cancel_button.pack_forget()
+            self.edit_button.pack(side=tk.LEFT)
+            self.delete_button.pack(side=tk.LEFT, padx=(10, 0))
+            self.back_button.pack(side=tk.LEFT, padx=(10, 0))
+
+            for key, entry_widget in self.form_entries.items():
+                entry_widget.grid_remove()
+                self.form_labels[key].grid()
+
+    def _cancel_edit(self) -> None:
+        if self.original_data:
+            self._update_form_vars(self.original_data)
+        self._toggle_edit_mode()
+
+    def _delete_employee(self) -> None:
+        if self.employee_id is not None:
+            if messagebox.askyesno("Подтверждение", "Вы уверены, что хотите удалить этого сотрудника?"):
+                self._on_delete(self.employee_id)
 
     def _validate_input(self, proposed_value: str, widget_path: str) -> bool:
         field_name = widget_path.split(".")[-1].replace("field_", "")
@@ -165,6 +259,8 @@ class EmployeeFormPage(tk.Frame):
         return allow_typed_value(field_name, proposed_value)
 
     def _submit(self) -> None:
+        if self.employee_id is None:
+            return
         data = {key: var.get().strip() for key, var in self.form_vars.items()}
         for date_field in DATE_FIELDS:
             if data[date_field] == DATE_PLACEHOLDER:
@@ -176,7 +272,7 @@ class EmployeeFormPage(tk.Frame):
             messagebox.showwarning("Ошибка ввода", "\n".join(errors[:5]))
             return
 
-        self._on_save(data)
+        self._on_save(self.employee_id, data)
 
     def _on_date_focus_in(self, field_name: str) -> None:
         if self.form_vars[field_name].get() == DATE_PLACEHOLDER:
@@ -220,13 +316,13 @@ class EmployeeFormPage(tk.Frame):
         formatted = self._format_date_digits(digits)
         self.form_vars[field_name].set(formatted)
 
-        entry = self.form_entries[field_name]
+        entry = cast(tk.Entry, self.form_entries[field_name])
         safe_digit_index = max(0, min(caret_digit_index, len(digits)))
         entry.icursor(self._digit_to_display_index(safe_digit_index))
         return "break"
 
     def _on_date_keypress(self, event: tk.Event, field_name: str) -> str | None:
-        entry = self.form_entries[field_name]
+        entry = cast(tk.Entry, self.form_entries[field_name])
         current_value = entry.get()
         if current_value == DATE_PLACEHOLDER:
             current_value = ""
@@ -279,7 +375,7 @@ class EmployeeFormPage(tk.Frame):
         return "break"
 
     def _on_date_paste(self, _event: tk.Event, field_name: str) -> str:
-        entry = self.form_entries[field_name]
+        entry = cast(tk.Entry, self.form_entries[field_name])
         current_value = entry.get()
         if current_value == DATE_PLACEHOLDER:
             current_value = ""
