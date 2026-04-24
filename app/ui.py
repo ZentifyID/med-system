@@ -71,7 +71,7 @@ def setup_styles(root: tk.Tk) -> None:
         background=BG_COLOR,
         foreground=TEXT_MUTED,
         font=("Segoe UI", 10, "bold"),
-        borderwidth=0,
+        borderwidth=1,
     )
     style.map(
         "Treeview",
