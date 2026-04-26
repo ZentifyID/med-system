@@ -3,32 +3,55 @@ from tkinter import messagebox, ttk
 from typing import Callable
 
 from app.ui import (
-    BG_COLOR,
-    ENTRY_BG,
-    ENTRY_FG,
-    TEXT_COLOR,
-    TEXT_MUTED,
-    FlatButton,
+    BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, ACCENT, BORDER,
+    ENTRY_BG, ENTRY_FG, ENTRY_BORDER, FlatButton,
 )
 from app.validators import (
-    AFFILIATION_UI_VALUES,
-    DATE_FIELDS,
-    FIELD_LABELS,
-    allow_typed_value,
-    normalize_affiliation,
-    validate_employee_payload,
+    AFFILIATION_UI_VALUES, DATE_FIELDS, FIELD_LABELS,
+    allow_typed_value, normalize_affiliation, validate_employee_payload,
 )
 
 DATE_PLACEHOLDER = "__.__.____"
 
+FIELDS: list[tuple[str, str]] = [
+    ("last_name", FIELD_LABELS["last_name"]),
+    ("first_name", FIELD_LABELS["first_name"]),
+    ("middle_name", FIELD_LABELS["middle_name"]),
+    ("birth_date", FIELD_LABELS["birth_date"]),
+    ("affiliation", FIELD_LABELS["affiliation"]),
+    ("passport_series", FIELD_LABELS["passport_series"]),
+    ("passport_number", FIELD_LABELS["passport_number"]),
+    ("passport_issued_by", FIELD_LABELS["passport_issued_by"]),
+    ("passport_issue_date", FIELD_LABELS["passport_issue_date"]),
+    ("passport_department_code", FIELD_LABELS["passport_department_code"]),
+    ("oms", FIELD_LABELS["oms"]),
+    ("address", FIELD_LABELS["address"]),
+    ("sanminimum_date", FIELD_LABELS["sanminimum_date"]),
+    ("medical_exam_date", FIELD_LABELS["medical_exam_date"]),
+    ("fluorography_date", FIELD_LABELS["fluorography_date"]),
+]
+
+
+def _styled_entry(parent, var, key, validate_cmd):
+    """Return a styled Entry or Combobox for a form field."""
+    if key == "affiliation":
+        w = ttk.Combobox(parent, textvariable=var, state="readonly", values=AFFILIATION_UI_VALUES, font=("Segoe UI", 10))
+        w.current(0)
+        return w
+    frame = tk.Frame(parent, bg=ENTRY_BORDER)
+    inner = tk.Frame(frame, bg=ENTRY_BG)
+    inner.pack(fill=tk.BOTH, padx=1, pady=1)
+    entry = tk.Entry(inner, textvariable=var, font=("Segoe UI", 10), bg=ENTRY_BG, fg=ENTRY_FG,
+                     relief=tk.FLAT, borderwidth=0, validate="key",
+                     validatecommand=validate_cmd, name=f"field_{key}")
+    entry.pack(fill=tk.X, padx=6, pady=5)
+    # Store entry ref on frame for date bindings
+    frame._entry = entry  # type: ignore[attr-defined]
+    return frame
+
 
 class EmployeeFormPage(tk.Frame):
-    def __init__(
-        self,
-        master: tk.Misc,
-        on_save: Callable[[dict[str, str]], None],
-        on_cancel: Callable[[], None],
-    ) -> None:
+    def __init__(self, master: tk.Misc, on_save: Callable[[dict], None], on_cancel: Callable[[], None]) -> None:
         super().__init__(master, bg=BG_COLOR)
         self._on_save = on_save
         self._on_cancel = on_cancel
@@ -36,118 +59,56 @@ class EmployeeFormPage(tk.Frame):
         self.form_vars: dict[str, tk.StringVar] = {}
         self.form_entries: dict[str, tk.Entry] = {}
 
-        title = tk.Label(
-            self,
-            text="Добавление сотрудника",
-            font=("Segoe UI", 24, "bold"),
-            bg=BG_COLOR,
-            fg=TEXT_COLOR,
-        )
-        title.pack(pady=(30, 20))
+        # Header
+        hdr = tk.Frame(self, bg=BG_COLOR)
+        hdr.pack(fill=tk.X, padx=28, pady=(24, 0))
+        tk.Label(hdr, text="Добавление сотрудника", font=("Segoe UI", 20, "bold"), bg=BG_COLOR, fg=TEXT_COLOR).pack(side=tk.LEFT)
+        tk.Frame(self, bg=BORDER, height=1).pack(fill=tk.X, padx=28, pady=(12, 16))
 
-        fields: list[tuple[str, str]] = [
-            ("last_name", FIELD_LABELS["last_name"]),
-            ("first_name", FIELD_LABELS["first_name"]),
-            ("middle_name", FIELD_LABELS["middle_name"]),
-            ("birth_date", FIELD_LABELS["birth_date"]),
-            ("affiliation", FIELD_LABELS["affiliation"]),
-            ("passport_series", FIELD_LABELS["passport_series"]),
-            ("passport_number", FIELD_LABELS["passport_number"]),
-            ("passport_issued_by", FIELD_LABELS["passport_issued_by"]),
-            ("passport_issue_date", FIELD_LABELS["passport_issue_date"]),
-            ("passport_department_code", FIELD_LABELS["passport_department_code"]),
-            ("oms", FIELD_LABELS["oms"]),
-            ("address", FIELD_LABELS["address"]),
-            ("sanminimum_date", FIELD_LABELS["sanminimum_date"]),
-            ("medical_exam_date", FIELD_LABELS["medical_exam_date"]),
-            ("fluorography_date", FIELD_LABELS["fluorography_date"]),
-        ]
+        # Card
+        card = tk.Frame(self, bg=BG_CARD)
+        card.pack(fill=tk.BOTH, expand=True, padx=28, pady=(0, 16))
+        inner = tk.Frame(card, bg=BG_CARD)
+        inner.pack(fill=tk.BOTH, expand=True, padx=20, pady=16)
 
-        form_container = tk.Frame(self, bg=BG_COLOR)
-        form_container.pack(fill=tk.BOTH, expand=True, padx=30, pady=10)
-
+        for i in range(4):
+            inner.grid_columnconfigure(i * 2 + (1 if i % 2 else 1), weight=1)
         for i in range(2):
-            form_container.grid_columnconfigure(i * 2, weight=0)
-            form_container.grid_columnconfigure(i * 2 + 1, weight=1)
+            inner.grid_columnconfigure(i * 2, weight=0)
+            inner.grid_columnconfigure(i * 2 + 1, weight=1)
 
-        left_count = (len(fields) + 1) // 2
-        for idx, (key, label) in enumerate(fields):
+        left_count = (len(FIELDS) + 1) // 2
+        for idx, (key, label) in enumerate(FIELDS):
             block = 0 if idx < left_count else 1
             row = idx if idx < left_count else idx - left_count
             label_col = block * 2
             input_col = label_col + 1
 
-            tk.Label(
-                form_container,
-                text=label,
-                font=("Segoe UI", 10),
-                bg=BG_COLOR,
-                fg=TEXT_COLOR,
-                anchor="w",
-            ).grid(row=row, column=label_col, sticky="w", padx=(0, 12), pady=8)
+            tk.Label(inner, text=label, font=("Segoe UI", 9), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(
+                row=row, column=label_col, sticky="w", padx=(0 if block == 0 else 20, 8), pady=(0, 2))
 
             var = tk.StringVar()
             self.form_vars[key] = var
+            widget = _styled_entry(inner, var, key, self._validate_cmd)
+            widget.grid(row=row, column=input_col, sticky="ew", padx=(0, 8 if block == 0 else 0), pady=4)
 
-            if key == "affiliation":
-                field = ttk.Combobox(
-                    form_container,
-                    textvariable=var,
-                    state="readonly",
-                    values=AFFILIATION_UI_VALUES,
-                )
-                field.current(0)
-            else:
-                field = tk.Entry(
-                    form_container,
-                    textvariable=var,
-                    font=("Segoe UI", 10),
-                    validate="key",
-                    validatecommand=self._validate_cmd,
-                    name=f"field_{key}",
-                    bg=ENTRY_BG,
-                    fg=ENTRY_FG,
-                    relief=tk.SOLID,
-                    borderwidth=1,
-                )
-                self.form_entries[key] = field
+            # Get actual tk.Entry ref for date bindings
+            entry = getattr(widget, "_entry", None) if not isinstance(widget, ttk.Combobox) else None
+            if entry:
+                self.form_entries[key] = entry
                 if key in DATE_FIELDS:
-                    field.bind("<FocusIn>", lambda _event, k=key: self._on_date_focus_in(k))
-                    field.bind("<FocusOut>", lambda _event, k=key: self._on_date_focus_out(k))
-                    field.bind("<KeyPress>", lambda event, k=key: self._on_date_keypress(event, k))
-                    field.bind("<Control-v>", lambda event, k=key: self._on_date_paste(event, k))
-                    field.bind("<<Paste>>", lambda event, k=key: self._on_date_paste(event, k))
-            field.grid(row=row, column=input_col, sticky="ew", padx=(0, 24), pady=8)
+                    entry.bind("<FocusIn>", lambda _e, k=key: self._on_date_focus_in(k))
+                    entry.bind("<FocusOut>", lambda _e, k=key: self._on_date_focus_out(k))
+                    entry.bind("<KeyPress>", lambda ev, k=key: self._on_date_keypress(ev, k))
+                    entry.bind("<Control-v>", lambda ev, k=key: self._on_date_paste(ev, k))
+                    entry.bind("<<Paste>>", lambda ev, k=key: self._on_date_paste(ev, k))
 
-        hint = tk.Label(
-            self,
-            text="Формат дат: ДД.ММ.ГГГГ",
-            font=("Segoe UI", 9, "italic"),
-            bg=BG_COLOR,
-            fg=TEXT_MUTED,
-        )
-        hint.pack(anchor="w", padx=32, pady=(0, 10))
+        tk.Label(self, text="Формат дат: ДД.ММ.ГГГГ", font=("Segoe UI", 8, "italic"), bg=BG_COLOR, fg=TEXT_MUTED).pack(anchor="w", padx=28)
 
         actions = tk.Frame(self, bg=BG_COLOR)
-        actions.pack(fill=tk.X, padx=30, pady=(10, 30))
-
-        save_button = FlatButton(
-            actions,
-            primary=True,
-            text="Сохранить",
-            width=14,
-            command=self._submit,
-        )
-        save_button.pack(side=tk.LEFT)
-
-        cancel_button = FlatButton(
-            actions,
-            primary=False,
-            text="Отмена",
-            width=14,
-            command=self._on_cancel,
-        )
-        cancel_button.pack(side=tk.LEFT, padx=(12, 0))
+        actions.pack(fill=tk.X, padx=28, pady=(8, 24))
+        FlatButton(actions, primary=True, text="Сохранить", command=self._submit, font=("Segoe UI", 10)).pack(side=tk.LEFT)
+        FlatButton(actions, primary=False, text="Отмена", command=self._on_cancel, font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(10, 0))
 
     def reset_form(self) -> None:
         for key, var in self.form_vars.items():
@@ -158,154 +119,92 @@ class EmployeeFormPage(tk.Frame):
             else:
                 var.set("")
 
-    def _validate_input(self, proposed_value: str, widget_path: str) -> bool:
-        field_name = widget_path.split(".")[-1].replace("field_", "")
-        if field_name not in self.form_vars:
-            return True
-        return allow_typed_value(field_name, proposed_value)
+    def _validate_input(self, proposed: str, widget_path: str) -> bool:
+        key = widget_path.split(".")[-1].replace("field_", "")
+        return allow_typed_value(key, proposed) if key in self.form_vars else True
 
     def _submit(self) -> None:
-        data = {key: var.get().strip() for key, var in self.form_vars.items()}
-        for date_field in DATE_FIELDS:
-            if data[date_field] == DATE_PLACEHOLDER:
-                data[date_field] = ""
+        data = {k: v.get().strip() for k, v in self.form_vars.items()}
+        for f in DATE_FIELDS:
+            if data[f] == DATE_PLACEHOLDER:
+                data[f] = ""
         data["affiliation"] = normalize_affiliation(data["affiliation"])
-
         errors = validate_employee_payload(data)
         if errors:
-            messagebox.showwarning("Ошибка ввода", "\n".join(errors[:5]))
-            return
-
+            messagebox.showwarning("Ошибка ввода", "\n".join(errors[:5])); return
         self._on_save(data)
 
-    def _on_date_focus_in(self, field_name: str) -> None:
-        if self.form_vars[field_name].get() == DATE_PLACEHOLDER:
-            self.form_vars[field_name].set("")
+    # ── Date helpers (same logic as before) ──────────────────────────────────
+    def _on_date_focus_in(self, k):
+        if self.form_vars[k].get() == DATE_PLACEHOLDER: self.form_vars[k].set("")
 
-    def _on_date_focus_out(self, field_name: str) -> None:
-        if not self.form_vars[field_name].get().strip():
-            self.form_vars[field_name].set(DATE_PLACEHOLDER)
+    def _on_date_focus_out(self, k):
+        if not self.form_vars[k].get().strip(): self.form_vars[k].set(DATE_PLACEHOLDER)
 
-    def _format_date_digits(self, digits: str) -> str:
-        if len(digits) <= 2:
-            return digits
-        if len(digits) <= 4:
-            return f"{digits[:2]}.{digits[2:]}"
+    def _fmt(self, digits):
+        if len(digits) <= 2: return digits
+        if len(digits) <= 4: return f"{digits[:2]}.{digits[2:]}"
         return f"{digits[:2]}.{digits[2:4]}.{digits[4:]}"
 
-    def _display_to_digit_index(self, display_value: str, display_index: int) -> int:
-        return sum(1 for char in display_value[:display_index] if char.isdigit())
+    def _d2i(self, display, idx): return sum(1 for c in display[:idx] if c.isdigit())
+    def _i2d(self, i):
+        if i <= 2: return i
+        if i <= 4: return i + 1
+        return i + 2
 
-    def _digit_to_display_index(self, digit_index: int) -> int:
-        if digit_index <= 2:
-            return digit_index
-        if digit_index <= 4:
-            return digit_index + 1
-        return digit_index + 2
+    def _digits(self, v): return "".join(c for c in v if c.isdigit())[:8]
 
-    def _extract_digits(self, value: str) -> str:
-        return "".join(char for char in value if char.isdigit())[:8]
+    def _replace(self, digits, s, e, r=""): return (digits[:s] + r + digits[e:])[:8]
 
-    def _replace_digits_range(
-        self,
-        digits: str,
-        start_digit: int,
-        end_digit: int,
-        replacement: str = "",
-    ) -> str:
-        return (digits[:start_digit] + replacement + digits[end_digit:])[:8]
-
-    def _apply_date_digits(self, field_name: str, digits: str, caret_digit_index: int) -> str:
+    def _apply(self, k, digits, caret):
         digits = digits[:8]
-        formatted = self._format_date_digits(digits)
-        self.form_vars[field_name].set(formatted)
-
-        entry = self.form_entries[field_name]
-        safe_digit_index = max(0, min(caret_digit_index, len(digits)))
-        entry.icursor(self._digit_to_display_index(safe_digit_index))
+        self.form_vars[k].set(self._fmt(digits))
+        e = self.form_entries[k]
+        e.icursor(self._i2d(max(0, min(caret, len(digits)))))
         return "break"
 
-    def _on_date_keypress(self, event: tk.Event, field_name: str) -> str | None:
-        entry = self.form_entries[field_name]
-        current_value = entry.get()
-        if current_value == DATE_PLACEHOLDER:
-            current_value = ""
-
-        digits = self._extract_digits(current_value)
-        selection_exists = entry.selection_present()
-        if selection_exists:
-            sel_start = entry.index("sel.first")
-            sel_end = entry.index("sel.last")
-            start_digit = self._display_to_digit_index(current_value, sel_start)
-            end_digit = self._display_to_digit_index(current_value, sel_end)
+    def _on_date_keypress(self, ev, k):
+        e = self.form_entries[k]
+        cur = e.get()
+        if cur == DATE_PLACEHOLDER: cur = ""
+        digits = self._digits(cur)
+        has_sel = e.selection_present()
+        if has_sel:
+            s = self._d2i(cur, e.index("sel.first"))
+            en = self._d2i(cur, e.index("sel.last"))
         else:
-            caret_display = entry.index(tk.INSERT)
-            start_digit = self._display_to_digit_index(current_value, caret_display)
-            end_digit = start_digit
-
-        is_ctrl_pressed = bool(event.state & 0x4)
-        if is_ctrl_pressed and event.keysym.lower() in {"a", "c", "x"}:
-            return None
-        if is_ctrl_pressed and event.keysym.lower() == "v":
-            return self._on_date_paste(event, field_name)
-
-        if event.keysym in {"Left", "Right", "Home", "End", "Tab", "ISO_Left_Tab", "Shift_L", "Shift_R"}:
-            return None
-
-        if event.keysym == "BackSpace":
-            if selection_exists:
-                new_digits = self._replace_digits_range(digits, start_digit, end_digit)
-                return self._apply_date_digits(field_name, new_digits, start_digit)
-            if start_digit == 0:
-                return "break"
-            new_digits = self._replace_digits_range(digits, start_digit - 1, start_digit)
-            return self._apply_date_digits(field_name, new_digits, start_digit - 1)
-
-        if event.keysym == "Delete":
-            if selection_exists:
-                new_digits = self._replace_digits_range(digits, start_digit, end_digit)
-                return self._apply_date_digits(field_name, new_digits, start_digit)
-            if start_digit >= len(digits):
-                return "break"
-            new_digits = self._replace_digits_range(digits, start_digit, start_digit + 1)
-            return self._apply_date_digits(field_name, new_digits, start_digit)
-
-        if event.char.isdigit():
-            if len(digits) >= 8 and not selection_exists:
-                return "break"
-            new_digits = self._replace_digits_range(digits, start_digit, end_digit, event.char)
-            return self._apply_date_digits(field_name, new_digits, start_digit + 1)
-
+            s = en = self._d2i(cur, e.index(tk.INSERT))
+        ctrl = bool(ev.state & 0x4)
+        if ctrl and ev.keysym.lower() in {"a", "c", "x"}: return None
+        if ctrl and ev.keysym.lower() == "v": return self._on_date_paste(ev, k)
+        if ev.keysym in {"Left", "Right", "Home", "End", "Tab", "ISO_Left_Tab", "Shift_L", "Shift_R"}: return None
+        if ev.keysym == "BackSpace":
+            if has_sel: return self._apply(k, self._replace(digits, s, en), s)
+            if s == 0: return "break"
+            return self._apply(k, self._replace(digits, s-1, s), s-1)
+        if ev.keysym == "Delete":
+            if has_sel: return self._apply(k, self._replace(digits, s, en), s)
+            if s >= len(digits): return "break"
+            return self._apply(k, self._replace(digits, s, s+1), s)
+        if ev.char.isdigit():
+            if len(digits) >= 8 and not has_sel: return "break"
+            return self._apply(k, self._replace(digits, s, en, ev.char), s+1)
         return "break"
 
-    def _on_date_paste(self, _event: tk.Event, field_name: str) -> str:
-        entry = self.form_entries[field_name]
-        current_value = entry.get()
-        if current_value == DATE_PLACEHOLDER:
-            current_value = ""
-
-        digits = self._extract_digits(current_value)
-
-        try:
-            clipboard = self.clipboard_get()
-        except tk.TclError:
-            return "break"
-
-        pasted_digits = "".join(char for char in clipboard if char.isdigit())
-        if not pasted_digits:
-            return "break"
-
-        selection_exists = entry.selection_present()
-        if selection_exists:
-            sel_start = entry.index("sel.first")
-            sel_end = entry.index("sel.last")
-            start_digit = self._display_to_digit_index(current_value, sel_start)
-            end_digit = self._display_to_digit_index(current_value, sel_end)
+    def _on_date_paste(self, _ev, k):
+        e = self.form_entries[k]
+        cur = e.get()
+        if cur == DATE_PLACEHOLDER: cur = ""
+        digits = self._digits(cur)
+        try: cb = self.clipboard_get()
+        except tk.TclError: return "break"
+        pd = "".join(c for c in cb if c.isdigit())
+        if not pd: return "break"
+        has_sel = e.selection_present()
+        if has_sel:
+            s = self._d2i(cur, e.index("sel.first"))
+            en = self._d2i(cur, e.index("sel.last"))
         else:
-            caret_display = entry.index(tk.INSERT)
-            start_digit = self._display_to_digit_index(current_value, caret_display)
-            end_digit = start_digit
-
-        new_digits = self._replace_digits_range(digits, start_digit, end_digit, pasted_digits)
-        caret_digit_index = min(start_digit + len(pasted_digits), len(new_digits))
-        return self._apply_date_digits(field_name, new_digits, caret_digit_index)
+            s = en = self._d2i(cur, e.index(tk.INSERT))
+        nd = self._replace(digits, s, en, pd)
+        return self._apply(k, nd, min(s + len(pd), len(nd)))

@@ -2,129 +2,248 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable
 
-from app.ui import BG_COLOR, TEXT_COLOR, FlatButton
+from app.ui import (
+    BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, ACCENT, ACCENT_LIGHT,
+    BORDER, ENTRY_BG, ENTRY_BORDER, FlatButton,
+)
+
+
+def _make_section_header(parent: tk.Frame, title: str, btn_text: str, btn_cmd: Callable) -> None:
+    row = tk.Frame(parent, bg=BG_COLOR)
+    row.pack(fill=tk.X, padx=28, pady=(24, 0))
+    tk.Label(row, text=title, font=("Segoe UI", 20, "bold"), bg=BG_COLOR, fg=TEXT_COLOR).pack(side=tk.LEFT)
+    FlatButton(row, primary=True, text=btn_text, command=btn_cmd, font=("Segoe UI", 10)).pack(side=tk.RIGHT)
+    tk.Frame(parent, bg=BORDER, height=1).pack(fill=tk.X, padx=28, pady=(12, 0))
+
+
+def _make_search_bar(parent: tk.Frame, search_var: tk.StringVar, filter_var: tk.StringVar | None, filter_values: list[str] | None, trigger_fn: Callable) -> None:
+    bar = tk.Frame(parent, bg=BG_COLOR)
+    bar.pack(fill=tk.X, padx=28, pady=(14, 10))
+
+    # Search field with border frame
+    search_frame = tk.Frame(bar, bg=ENTRY_BORDER, bd=0)
+    search_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+    inner = tk.Frame(search_frame, bg=ENTRY_BG)
+    inner.pack(fill=tk.BOTH, padx=1, pady=1)
+    tk.Label(inner, text="🔍", font=("Segoe UI", 10), bg=ENTRY_BG, fg=TEXT_MUTED).pack(side=tk.LEFT, padx=(8, 4))
+    tk.Entry(inner, textvariable=search_var, font=("Segoe UI", 10), bg=ENTRY_BG, fg=TEXT_COLOR, relief=tk.FLAT, borderwidth=0).pack(side=tk.LEFT, fill=tk.X, expand=True, pady=6, padx=(0, 8))
+
+    if filter_var and filter_values:
+        combo = ttk.Combobox(bar, textvariable=filter_var, state="readonly", values=filter_values, width=22, font=("Segoe UI", 10))
+        combo.pack(side=tk.RIGHT)
+        combo.bind("<<ComboboxSelected>>", trigger_fn)
+
+
+def _make_table_card(parent: tk.Frame, columns: tuple, headings: dict, widths: dict, anchors: dict | None = None) -> tuple[tk.Frame, ttk.Treeview]:
+    card = tk.Frame(parent, bg=BG_CARD, bd=0)
+    card.pack(fill=tk.BOTH, expand=True, padx=28, pady=(0, 16))
+
+    tv = ttk.Treeview(card, columns=columns, show="headings")
+    for col in columns:
+        tv.heading(col, text=headings.get(col, col))
+        anchor = (anchors or {}).get(col, tk.W)
+        tv.column(col, width=widths.get(col, 150), anchor=anchor, stretch=True)
+
+    # Alternating row colors
+    tv.tag_configure("odd", background=BG_CARD)
+    tv.tag_configure("even", background="#F9FAFB")
+
+    sb = ttk.Scrollbar(card, orient=tk.VERTICAL, command=tv.yview)
+    tv.configure(yscrollcommand=sb.set)
+    tv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    sb.pack(side=tk.RIGHT, fill=tk.Y)
+    return card, tv
+
+
+def _make_action_bar(parent: tk.Frame, buttons: list[tuple[str, bool, Callable]]) -> tk.Frame:
+    bar = tk.Frame(parent, bg=BG_COLOR)
+    bar.pack(fill=tk.X, padx=28, pady=(0, 24))
+    for i, (text, primary, cmd) in enumerate(buttons):
+        FlatButton(bar, primary=primary, text=text, command=cmd, font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(0 if i == 0 else 10, 0))
+    return bar
 
 
 class EmployeesPage(tk.Frame):
-    def __init__(
-        self,
-        master: tk.Misc,
-        on_add: Callable[[], None],
-        on_back: Callable[[], None],
-        on_select: Callable[[int], None],
-        on_filter_changed: Callable[[str, str], None],
-    ) -> None:
+    def __init__(self, master, on_add, on_back, on_select, on_filter_changed):
         super().__init__(master, bg=BG_COLOR)
         self.on_select = on_select
         self.on_filter_changed = on_filter_changed
 
-        title = tk.Label(
-            self,
-            text="Сотрудники",
-            font=("Segoe UI", 24, "bold"),
-            bg=BG_COLOR,
-            fg=TEXT_COLOR,
-        )
-        title.pack(pady=(30, 20))
-
-        filter_container = tk.Frame(self, bg=BG_COLOR)
-        filter_container.pack(fill=tk.X, padx=30, pady=(0, 10))
+        _make_section_header(self, "Сотрудники", "+ Добавить", on_add)
 
         self.search_var = tk.StringVar()
         self.search_var.trace_add("write", self._trigger_filter)
-        
-        search_entry = tk.Entry(
-            filter_container,
-            textvariable=self.search_var,
-            font=("Segoe UI", 11),
-            bg="#FFFFFF",
-            fg=TEXT_COLOR,
-            relief=tk.SOLID,
-            borderwidth=1,
-        )
-        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
-
         self.filter_var = tk.StringVar(value="Все сотрудники")
-        filter_combo = ttk.Combobox(
-            filter_container,
-            textvariable=self.filter_var,
-            state="readonly",
-            values=["Все сотрудники", "Просроченные", "Истекают (2 недели)"],
-            width=22,
-            font=("Segoe UI", 10),
-        )
-        filter_combo.pack(side=tk.RIGHT)
-        filter_combo.bind("<<ComboboxSelected>>", self._trigger_filter)
+        _make_search_bar(self, self.search_var, self.filter_var, ["Все сотрудники", "Просроченные", "Истекают (2 недели)"], self._trigger_filter)
 
-        table_container = tk.Frame(self, bg=BG_COLOR)
-        table_container.pack(fill=tk.BOTH, expand=True, padx=30, pady=10)
+        _, self.table = _make_table_card(self, ("fio", "affiliation"),
+            {"fio": "ФИО", "affiliation": "Принадлежность"},
+            {"fio": 560, "affiliation": 200},
+            {"fio": tk.W, "affiliation": tk.CENTER})
+        self.table.bind("<Double-1>", lambda e: self._open_selected())
 
-        columns = ("fio", "affiliation")
-        self.employees_table = ttk.Treeview(
-            table_container,
-            columns=columns,
-            show="headings",
-            height=14,
-        )
-        self.employees_table.heading("fio", text="ФИО")
-        self.employees_table.heading("affiliation", text="Принадлежность")
-        self.employees_table.column("fio", width=620, anchor=tk.W)
-        self.employees_table.column("affiliation", width=240, anchor=tk.CENTER)
-        self.employees_table.bind("<Double-1>", self._on_double_click)
+        _make_action_bar(self, [("Открыть", True, self._open_selected), ("Назад", False, on_back)])
 
-        y_scroll = ttk.Scrollbar(
-            table_container, orient=tk.VERTICAL, command=self.employees_table.yview
-        )
-        self.employees_table.configure(yscrollcommand=y_scroll.set)
+    def set_rows(self, rows):
+        for item in self.table.get_children():
+            self.table.delete(item)
+        for i, (id, fio, affiliation) in enumerate(rows):
+            tag = "odd" if i % 2 == 0 else "even"
+            self.table.insert("", tk.END, iid=str(id), values=(fio, affiliation), tags=(tag,))
 
-        self.employees_table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+    def _open_selected(self):
+        sel = self.table.selection()
+        if sel:
+            self.on_select(int(sel[0]))
 
-        actions = tk.Frame(self, bg=BG_COLOR)
-        actions.pack(fill=tk.X, padx=30, pady=(10, 30))
-
-        add_button = FlatButton(
-            actions,
-            primary=True,
-            text="Добавить",
-            width=14,
-            command=on_add,
-        )
-        add_button.pack(side=tk.LEFT)
-
-        open_button = FlatButton(
-            actions,
-            primary=True,
-            text="Открыть",
-            width=14,
-            command=self._on_open_selected,
-        )
-        open_button.pack(side=tk.LEFT, padx=(12, 0))
-
-        back_button = FlatButton(
-            actions,
-            primary=False,
-            text="Назад",
-            width=14,
-            command=on_back,
-        )
-        back_button.pack(side=tk.LEFT, padx=(12, 0))
-
-    def set_rows(self, rows: list[tuple[int, str, str]]) -> None:
-        for item in self.employees_table.get_children():
-            self.employees_table.delete(item)
-
-        for id, fio, affiliation in rows:
-            self.employees_table.insert("", tk.END, iid=str(id), values=(fio, affiliation))
-
-    def _on_double_click(self, event: tk.Event) -> None:
-        self._on_open_selected()
-
-    def _on_open_selected(self) -> None:
-        selection = self.employees_table.selection()
-        if selection:
-            employee_id = int(selection[0])
-            self.on_select(employee_id)
-
-    def _trigger_filter(self, *args: object) -> None:
+    def _trigger_filter(self, *args):
         self.on_filter_changed(self.search_var.get(), self.filter_var.get())
+
+
+class StudentsPage(tk.Frame):
+    def __init__(self, master, on_add, on_groups, on_back, on_select, on_filter_changed):
+        super().__init__(master, bg=BG_COLOR)
+        self.on_select = on_select
+        self.on_filter_changed = on_filter_changed
+
+        _make_section_header(self, "Студенты", "+ Добавить", on_add)
+
+        self.search_var = tk.StringVar()
+        self.search_var.trace_add("write", self._trigger_filter)
+        self.filter_var = tk.StringVar(value="Все студенты")
+        _make_search_bar(self, self.search_var, self.filter_var, ["Все студенты", "Просроченные", "Истекают (2 недели)"], self._trigger_filter)
+
+        _, self.table = _make_table_card(self, ("fio", "group_name"),
+            {"fio": "ФИО", "group_name": "Группа"},
+            {"fio": 560, "group_name": 200},
+            {"fio": tk.W, "group_name": tk.CENTER})
+        self.table.bind("<Double-1>", lambda e: self._open_selected())
+
+        _make_action_bar(self, [("Открыть", True, self._open_selected), ("Группы", False, on_groups), ("Назад", False, on_back)])
+
+    def set_rows(self, rows):
+        for item in self.table.get_children():
+            self.table.delete(item)
+        for i, (id, fio, group_name) in enumerate(rows):
+            tag = "odd" if i % 2 == 0 else "even"
+            self.table.insert("", tk.END, iid=str(id), values=(fio, group_name), tags=(tag,))
+
+    def _open_selected(self):
+        sel = self.table.selection()
+        if sel:
+            self.on_select(int(sel[0]))
+
+    def _trigger_filter(self, *args):
+        self.on_filter_changed(self.search_var.get(), self.filter_var.get())
+
+
+class MedicinesPage(tk.Frame):
+    def __init__(self, master, on_add, on_back, on_select, on_order, on_filter_changed):
+        super().__init__(master, bg=BG_COLOR)
+        self.on_select = on_select
+        self.on_filter_changed = on_filter_changed
+
+        _make_section_header(self, "Лекарства", "+ Добавить", on_add)
+
+        self.search_var = tk.StringVar()
+        self.search_var.trace_add("write", self._trigger_filter)
+        self.filter_var = tk.StringVar(value="Все лекарства")
+        _make_search_bar(self, self.search_var, self.filter_var, ["Все лекарства", "Мало (<= 5)", "Истекают (2 недели)", "Просроченные"], self._trigger_filter)
+
+        _, self.table = _make_table_card(self, ("name", "quantity", "unit", "expiration_date"),
+            {"name": "Название", "quantity": "Кол-во", "unit": "Ед. изм.", "expiration_date": "Срок годности"},
+            {"name": 380, "quantity": 90, "unit": 130, "expiration_date": 160},
+            {"name": tk.W, "quantity": tk.CENTER, "unit": tk.W, "expiration_date": tk.CENTER})
+
+        self.table.tag_configure("expiring", foreground="#EF4444")
+        self.table.tag_configure("low_qty", foreground="#F59E0B")
+        self.table.tag_configure("expiring_low", foreground="#C0392B")
+        self.table.bind("<Double-1>", lambda e: self._open_selected())
+
+        _make_action_bar(self, [("Открыть", True, self._open_selected), ("Заказать", False, on_order), ("Назад", False, on_back)])
+
+    def set_rows(self, rows):
+        for item in self.table.get_children():
+            self.table.delete(item)
+        for i, row in enumerate(rows):
+            m_id, name, qty, unit, exp_date, is_expiring, is_low_qty = row
+            base_tag = "odd" if i % 2 == 0 else "even"
+            if is_expiring and is_low_qty:
+                color_tag = "expiring_low"
+            elif is_expiring:
+                color_tag = "expiring"
+            elif is_low_qty:
+                color_tag = "low_qty"
+            else:
+                color_tag = base_tag
+            self.table.insert("", tk.END, iid=str(m_id), values=(name, qty, unit, exp_date), tags=(color_tag,))
+
+    def _open_selected(self):
+        sel = self.table.selection()
+        if sel:
+            self.on_select(int(sel[0]))
+
+    def _trigger_filter(self, *args):
+        self.on_filter_changed(self.search_var.get(), self.filter_var.get())
+
+
+class AppealsPage(tk.Frame):
+    def __init__(self, master, on_add, on_back, on_select, on_filter_changed):
+        super().__init__(master, bg=BG_COLOR)
+        self.on_select = on_select
+        self.on_filter_changed = on_filter_changed
+
+        _make_section_header(self, "Обращения", "+ Добавить", on_add)
+
+        self.search_var = tk.StringVar()
+        self.search_var.trace_add("write", self._trigger_filter)
+        _make_search_bar(self, self.search_var, None, None, self._trigger_filter)
+
+        _, self.table = _make_table_card(self, ("title", "sender", "created_at"),
+            {"title": "Заголовок", "sender": "От кого", "created_at": "Дата"},
+            {"title": 460, "sender": 220, "created_at": 140},
+            {"title": tk.W, "sender": tk.W, "created_at": tk.CENTER})
+        self.table.bind("<Double-1>", lambda e: self._open_selected())
+
+        _make_action_bar(self, [("Открыть", True, self._open_selected), ("Назад", False, on_back)])
+
+    def set_rows(self, rows):
+        for item in self.table.get_children():
+            self.table.delete(item)
+        for i, (m_id, title, sender, created_at) in enumerate(rows):
+            tag = "odd" if i % 2 == 0 else "even"
+            self.table.insert("", tk.END, iid=str(m_id), values=(title, sender, created_at), tags=(tag,))
+
+    def _open_selected(self):
+        sel = self.table.selection()
+        if sel:
+            self.on_select(int(sel[0]))
+
+    def _trigger_filter(self, *args):
+        self.on_filter_changed(self.search_var.get())
+
+
+class GroupsPage(tk.Frame):
+    def __init__(self, master, on_add, on_back, on_select):
+        super().__init__(master, bg=BG_COLOR)
+        self.on_select = on_select
+
+        _make_section_header(self, "Учебные группы", "+ Добавить", on_add)
+        tk.Frame(self, bg=BG_COLOR, height=14).pack()
+
+        _, self.table = _make_table_card(self, ("name",), {"name": "Название группы"}, {"name": 760})
+        self.table.bind("<Double-1>", lambda e: self._open_selected())
+
+        _make_action_bar(self, [("Открыть", True, self._open_selected), ("Назад", False, on_back)])
+
+    def set_rows(self, rows):
+        for item in self.table.get_children():
+            self.table.delete(item)
+        for i, (id, name) in enumerate(rows):
+            tag = "odd" if i % 2 == 0 else "even"
+            self.table.insert("", tk.END, iid=str(id), values=(name,), tags=(tag,))
+
+    def _open_selected(self):
+        sel = self.table.selection()
+        if sel:
+            self.on_select(int(sel[0]))
