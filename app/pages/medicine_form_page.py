@@ -2,7 +2,9 @@ import tkinter as tk
 from tkinter import messagebox
 from typing import Callable
 
-from app.ui import BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, FlatButton
+import customtkinter as ctk
+
+from app.ui import BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton
 
 DATE_PLACEHOLDER = "__.__.____"
 MED_FIELDS = [("name", "Название препарата"), ("quantity", "Количество"), ("unit", "Единицы измерения"), ("expiration_date", "Срок годности")]
@@ -20,9 +22,8 @@ class MedicineFormPage(tk.Frame):
         super().__init__(master, bg=BG_COLOR)
         self._on_save = on_save
         self._on_cancel = on_cancel
-        self._validate_cmd = (self.register(self._validate_input), "%P", "%W")
         self.form_vars: dict[str, tk.StringVar] = {}
-        self.form_entries: dict[str, tk.Entry] = {}
+        self.form_entries: dict[str, ctk.CTkEntry] = {}
 
         _make_header(self, "Добавление лекарства")
 
@@ -37,32 +38,35 @@ class MedicineFormPage(tk.Frame):
                 row=row, column=0, sticky="w", padx=(0, 16), pady=(0, 2))
             var = tk.StringVar()
             self.form_vars[key] = var
-            entry = tk.Entry(inner, textvariable=var, font=("Segoe UI", 10),
-                             validate="key", validatecommand=self._validate_cmd,
-                             name=f"field_{key}", bg=ENTRY_BG, fg=ENTRY_FG, relief=tk.SOLID, borderwidth=1)
+            entry = ctk.CTkEntry(
+                inner,
+                textvariable=var,
+                font=ctk.CTkFont(family="Segoe UI", size=13),
+                fg_color=ENTRY_BG,
+                text_color=ENTRY_FG,
+                border_color=ENTRY_BORDER,
+                corner_radius=CORNER_RADIUS,
+                height=34,
+            )
             entry.grid(row=row, column=1, sticky="ew", pady=4)
             self.form_entries[key] = entry
             if key == "expiration_date":
-                entry.bind("<FocusIn>", lambda _e, k=key: self._date_focus_in(k))
-                entry.bind("<FocusOut>", lambda _e, k=key: self._date_focus_out(k))
-                entry.bind("<KeyPress>", lambda ev, k=key: self._date_keypress(ev, k))
-                entry.bind("<Control-v>", lambda ev, k=key: self._date_paste(ev, k))
-                entry.bind("<<Paste>>", lambda ev, k=key: self._date_paste(ev, k))
+                inner_entry = entry._entry if hasattr(entry, '_entry') else entry
+                inner_entry.bind("<FocusIn>", lambda _e, k=key: self._date_focus_in(k))
+                inner_entry.bind("<FocusOut>", lambda _e, k=key: self._date_focus_out(k))
+                inner_entry.bind("<KeyPress>", lambda ev, k=key: self._date_keypress(ev, k))
+                inner_entry.bind("<Control-v>", lambda ev, k=key: self._date_paste(ev, k))
+                inner_entry.bind("<<Paste>>", lambda ev, k=key: self._date_paste(ev, k))
 
         tk.Label(self, text="Формат даты: ДД.ММ.ГГГГ", font=("Segoe UI", 8, "italic"), bg=BG_COLOR, fg=TEXT_MUTED).pack(anchor="w", padx=28)
         bar = tk.Frame(self, bg=BG_COLOR)
         bar.pack(fill=tk.X, padx=28, pady=(8, 24))
-        FlatButton(bar, primary=True, text="Сохранить", command=self._submit, font=("Segoe UI", 10)).pack(side=tk.LEFT)
-        FlatButton(bar, primary=False, text="Отмена", command=self._on_cancel, font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(10, 0))
+        FlatButton(bar, primary=True, text="Сохранить", command=self._submit, font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side=tk.LEFT)
+        FlatButton(bar, primary=False, text="Отмена", command=self._on_cancel, font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side=tk.LEFT, padx=(10, 0))
 
     def reset_form(self) -> None:
         for key, var in self.form_vars.items():
             var.set(DATE_PLACEHOLDER if key == "expiration_date" else "")
-
-    def _validate_input(self, proposed: str, widget_path: str) -> bool:
-        key = widget_path.split(".")[-1].replace("field_", "")
-        if key == "quantity" and proposed and not proposed.isdigit(): return False
-        return True
 
     def _submit(self) -> None:
         data = {k: v.get().strip() for k, v in self.form_vars.items()}
@@ -95,14 +99,20 @@ class MedicineFormPage(tk.Frame):
     def _digits(self, v): return "".join(c for c in v if c.isdigit())[:8]
     def _replace(self, d, s, e, r=""): return (d[:s] + r + d[e:])[:8]
 
+    def _get_inner_entry(self, k):
+        widget = self.form_entries[k]
+        if isinstance(widget, ctk.CTkEntry) and hasattr(widget, '_entry'):
+            return widget._entry
+        return widget
+
     def _apply(self, k, digits, caret):
         self.form_vars[k].set(self._fmt(digits[:8]))
-        e = self.form_entries[k]
+        e = self._get_inner_entry(k)
         e.icursor(self._i2d(max(0, min(caret, len(digits)))))
         return "break"
 
     def _date_keypress(self, ev, k):
-        e = self.form_entries[k]
+        e = self._get_inner_entry(k)
         cur = e.get()
         if cur == DATE_PLACEHOLDER: cur = ""
         digits = self._digits(cur)
@@ -129,7 +139,7 @@ class MedicineFormPage(tk.Frame):
         return "break"
 
     def _date_paste(self, _ev, k):
-        e = self.form_entries[k]
+        e = self._get_inner_entry(k)
         cur = e.get()
         if cur == DATE_PLACEHOLDER: cur = ""
         digits = self._digits(cur)

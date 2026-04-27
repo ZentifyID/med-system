@@ -2,7 +2,9 @@ import tkinter as tk
 from tkinter import messagebox
 from typing import Callable
 
-from app.ui import BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, FlatButton
+import customtkinter as ctk
+
+from app.ui import BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton
 
 
 class GroupFormPage(tk.Frame):
@@ -23,13 +25,18 @@ class GroupFormPage(tk.Frame):
         inner.pack(fill=tk.X, padx=20, pady=16)
 
         tk.Label(inner, text="Название группы", font=("Segoe UI", 9), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
-        self.name_entry = tk.Entry(inner, textvariable=self.name_var, font=("Segoe UI", 11), bg=ENTRY_BG, fg=ENTRY_FG, relief=tk.SOLID, borderwidth=1)
-        self.name_entry.pack(fill=tk.X, ipady=6)
+        self.name_entry = ctk.CTkEntry(
+            inner, textvariable=self.name_var,
+            font=ctk.CTkFont(family="Segoe UI", size=14),
+            fg_color=ENTRY_BG, text_color=ENTRY_FG,
+            border_color=ENTRY_BORDER, corner_radius=CORNER_RADIUS, height=40,
+        )
+        self.name_entry.pack(fill=tk.X)
 
         bar = tk.Frame(self, bg=BG_COLOR)
         bar.pack(fill=tk.X, padx=28, pady=(8, 24))
-        FlatButton(bar, primary=True, text="Сохранить", command=self._submit, font=("Segoe UI", 10)).pack(side=tk.LEFT)
-        FlatButton(bar, primary=False, text="Отмена", command=self._on_cancel, font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(10, 0))
+        FlatButton(bar, primary=True, text="Сохранить", command=self._submit, font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side=tk.LEFT)
+        FlatButton(bar, primary=False, text="Отмена", command=self._on_cancel, font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side=tk.LEFT, padx=(10, 0))
 
     def reset_form(self) -> None:
         self.name_var.set("")
@@ -63,17 +70,23 @@ class GroupViewPage(tk.Frame):
         inner.pack(fill=tk.X, padx=20, pady=16)
 
         tk.Label(inner, text="Название группы", font=("Segoe UI", 9), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
-        self.name_entry = tk.Entry(inner, textvariable=self.name_var, font=("Segoe UI", 11), bg=BG_CARD, fg=TEXT_COLOR, relief=tk.FLAT, state="readonly")
-        self.name_entry.pack(fill=tk.X, ipady=6)
+        self.name_entry = ctk.CTkEntry(
+            inner, textvariable=self.name_var,
+            font=ctk.CTkFont(family="Segoe UI", size=14),
+            fg_color=BG_CARD, text_color=TEXT_COLOR,
+            border_color=BG_CARD, corner_radius=CORNER_RADIUS, height=40,
+            state="disabled",
+        )
+        self.name_entry.pack(fill=tk.X)
 
         self.actions = tk.Frame(self, bg=BG_COLOR)
         self.actions.pack(fill=tk.X, padx=28, pady=(8, 24))
 
-        self.edit_button      = FlatButton(self.actions, primary=True,  text="Изменить",  command=self._toggle_edit_mode, font=("Segoe UI", 10))
-        self.delete_button    = FlatButton(self.actions, primary=False, danger=True, text="Удалить",   command=self._delete, font=("Segoe UI", 10))
-        self.back_button      = FlatButton(self.actions, primary=False, text="Назад",     command=self._on_cancel, font=("Segoe UI", 10))
-        self.save_button      = FlatButton(self.actions, primary=True,  text="Сохранить", command=self._submit, font=("Segoe UI", 10))
-        self.cancel_edit_button = FlatButton(self.actions, primary=False, text="Отмена",  command=self._cancel_edit, font=("Segoe UI", 10))
+        self.edit_button      = FlatButton(self.actions, primary=True,  text="Изменить",  command=self._toggle_edit_mode, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.delete_button    = FlatButton(self.actions, primary=False, danger=True, text="Удалить",   command=self._delete, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.back_button      = FlatButton(self.actions, primary=False, text="Назад",     command=self._on_cancel, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.save_button      = FlatButton(self.actions, primary=True,  text="Сохранить", command=self._submit, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.cancel_edit_button = FlatButton(self.actions, primary=False, text="Отмена",  command=self._cancel_edit, font=ctk.CTkFont(family="Segoe UI", size=12))
 
         self._update_action_buttons()
 
@@ -99,9 +112,19 @@ class GroupViewPage(tk.Frame):
         self.is_edit_mode = not self.is_edit_mode
         self._update_action_buttons()
         if self.is_edit_mode:
-            self.name_entry.config(state=tk.NORMAL, bg=ENTRY_BG, fg=ENTRY_FG, relief=tk.SOLID, borderwidth=1)
+            self.name_entry.configure(
+                state="normal",
+                fg_color=ENTRY_BG,
+                text_color=ENTRY_FG,
+                border_color=ENTRY_BORDER,
+            )
         else:
-            self.name_entry.config(state="readonly", bg=BG_CARD, fg=TEXT_COLOR, relief=tk.FLAT, borderwidth=0)
+            self.name_entry.configure(
+                state="disabled",
+                fg_color=BG_CARD,
+                text_color=TEXT_COLOR,
+                border_color=BG_CARD,
+            )
 
     def _cancel_edit(self) -> None:
         self.name_var.set(self.original_name)

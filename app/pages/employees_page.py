@@ -2,31 +2,39 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable
 
+import customtkinter as ctk
+
 from app.ui import (
     BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, ACCENT, ACCENT_LIGHT,
-    BORDER, ENTRY_BG, ENTRY_BORDER, FlatButton,
+    BORDER, ENTRY_BG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
 )
 
 
 def _make_section_header(parent: tk.Frame, title: str, btn_text: str, btn_cmd: Callable) -> None:
     row = tk.Frame(parent, bg=BG_COLOR)
-    row.pack(fill=tk.X, padx=28, pady=(24, 0))
+    row.pack(fill=tk.X, padx=36, pady=(28, 0))
     tk.Label(row, text=title, font=("Segoe UI", 20, "bold"), bg=BG_COLOR, fg=TEXT_COLOR).pack(side=tk.LEFT)
-    FlatButton(row, primary=True, text=btn_text, command=btn_cmd, font=("Segoe UI", 10)).pack(side=tk.RIGHT)
-    tk.Frame(parent, bg=BORDER, height=1).pack(fill=tk.X, padx=28, pady=(12, 0))
+    FlatButton(row, primary=True, text=btn_text, command=btn_cmd, font=ctk.CTkFont(family="Segoe UI", size=12), height=36).pack(side=tk.RIGHT)
+    tk.Frame(parent, bg=BORDER, height=1).pack(fill=tk.X, padx=36, pady=(12, 0))
 
 
 def _make_search_bar(parent: tk.Frame, search_var: tk.StringVar, filter_var: tk.StringVar | None, filter_values: list[str] | None, trigger_fn: Callable) -> None:
     bar = tk.Frame(parent, bg=BG_COLOR)
-    bar.pack(fill=tk.X, padx=28, pady=(14, 10))
+    bar.pack(fill=tk.X, padx=36, pady=(14, 12))
 
-    # Search field with border frame
-    search_frame = tk.Frame(bar, bg=ENTRY_BORDER, bd=0)
-    search_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
-    inner = tk.Frame(search_frame, bg=ENTRY_BG)
-    inner.pack(fill=tk.BOTH, padx=1, pady=1)
-    tk.Label(inner, text="🔍", font=("Segoe UI", 10), bg=ENTRY_BG, fg=TEXT_MUTED).pack(side=tk.LEFT, padx=(8, 4))
-    tk.Entry(inner, textvariable=search_var, font=("Segoe UI", 10), bg=ENTRY_BG, fg=TEXT_COLOR, relief=tk.FLAT, borderwidth=0).pack(side=tk.LEFT, fill=tk.X, expand=True, pady=6, padx=(0, 8))
+    search_entry = ctk.CTkEntry(
+        bar,
+        textvariable=search_var,
+        font=ctk.CTkFont(family="Segoe UI", size=13),
+        fg_color=BG_CARD,
+        text_color=TEXT_COLOR,
+        border_color=ENTRY_BORDER,
+        corner_radius=CORNER_RADIUS,
+        placeholder_text="🔍 Поиск...",
+        placeholder_text_color=TEXT_MUTED,
+        height=38,
+    )
+    search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
 
     if filter_var and filter_values:
         combo = ttk.Combobox(bar, textvariable=filter_var, state="readonly", values=filter_values, width=22, font=("Segoe UI", 10))
@@ -35,8 +43,12 @@ def _make_search_bar(parent: tk.Frame, search_var: tk.StringVar, filter_var: tk.
 
 
 def _make_table_card(parent: tk.Frame, columns: tuple, headings: dict, widths: dict, anchors: dict | None = None) -> tuple[tk.Frame, ttk.Treeview]:
-    card = tk.Frame(parent, bg=BG_CARD, bd=0)
-    card.pack(fill=tk.BOTH, expand=True, padx=28, pady=(0, 16))
+    # Card with 1px border
+    outer = tk.Frame(parent, bg=BORDER)
+    outer.pack(fill=tk.BOTH, expand=True, padx=36, pady=(0, 14))
+
+    card = tk.Frame(outer, bg=BG_CARD)
+    card.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
 
     tv = ttk.Treeview(card, columns=columns, show="headings")
     for col in columns:
@@ -44,7 +56,6 @@ def _make_table_card(parent: tk.Frame, columns: tuple, headings: dict, widths: d
         anchor = (anchors or {}).get(col, tk.W)
         tv.column(col, width=widths.get(col, 150), anchor=anchor, stretch=True)
 
-    # Alternating row colors
     tv.tag_configure("odd", background=BG_CARD)
     tv.tag_configure("even", background="#F9FAFB")
 
@@ -52,14 +63,14 @@ def _make_table_card(parent: tk.Frame, columns: tuple, headings: dict, widths: d
     tv.configure(yscrollcommand=sb.set)
     tv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
     sb.pack(side=tk.RIGHT, fill=tk.Y)
-    return card, tv
+    return outer, tv
 
 
 def _make_action_bar(parent: tk.Frame, buttons: list[tuple[str, bool, Callable]]) -> tk.Frame:
     bar = tk.Frame(parent, bg=BG_COLOR)
-    bar.pack(fill=tk.X, padx=28, pady=(0, 24))
+    bar.pack(fill=tk.X, padx=36, pady=(0, 28))
     for i, (text, primary, cmd) in enumerate(buttons):
-        FlatButton(bar, primary=primary, text=text, command=cmd, font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(0 if i == 0 else 10, 0))
+        FlatButton(bar, primary=primary, text=text, command=cmd, font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side=tk.LEFT, padx=(0 if i == 0 else 10, 0))
     return bar
 
 
@@ -155,9 +166,9 @@ class MedicinesPage(tk.Frame):
             {"name": 380, "quantity": 90, "unit": 130, "expiration_date": 160},
             {"name": tk.W, "quantity": tk.CENTER, "unit": tk.W, "expiration_date": tk.CENTER})
 
-        self.table.tag_configure("expiring", foreground="#EF4444")
-        self.table.tag_configure("low_qty", foreground="#F59E0B")
-        self.table.tag_configure("expiring_low", foreground="#C0392B")
+        self.table.tag_configure("expiring", foreground="#D97706")
+        self.table.tag_configure("low_qty", foreground="#DC2626")
+        self.table.tag_configure("expiring_low", foreground="#DC2626")
         self.table.bind("<Double-1>", lambda e: self._open_selected())
 
         _make_action_bar(self, [("Открыть", True, self._open_selected), ("Заказать", False, on_order), ("Назад", False, on_back)])

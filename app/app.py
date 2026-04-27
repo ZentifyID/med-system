@@ -3,6 +3,8 @@ import tkinter as tk
 from datetime import datetime, timedelta
 from tkinter import messagebox
 
+import customtkinter as ctk
+
 from app.database import (
     delete_employee, fetch_employee_by_id, fetch_employees_for_table, init_db, insert_employee, update_employee,
     fetch_students_for_table, fetch_student_by_id, insert_student, update_student, delete_student,
@@ -29,10 +31,10 @@ from app.pages.appeal_form_page import AppealFormPage
 from app.pages.appeal_view_page import AppealViewPage
 from app.pages.main_page import MainPage
 from app.ui import (
-    BG_SIDEBAR, BG_COLOR, TEXT_SIDEBAR, ACCENT, TEXT_COLOR,
+    BG_SIDEBAR, BG_COLOR, TEXT_SIDEBAR, ACCENT, TEXT_COLOR, TEXT_MUTED,
+    BORDER, SIDEBAR_BORDER,
     setup_styles, SidebarButton,
 )
-import tkinter.font as tkfont
 
 
 class App:
@@ -41,7 +43,7 @@ class App:
         self.root.title("Med System")
         self.root.geometry("1140x700")
         self.root.minsize(900, 560)
-        self.root.configure(bg=BG_SIDEBAR)
+        self.root.configure(bg=BG_COLOR)
         setup_styles(root)
 
         self.search_query = ""
@@ -53,13 +55,19 @@ class App:
         self.search_query_appeals = ""
 
         # ── Shell layout ──────────────────────────────────────────────
-        shell = tk.Frame(root, bg=BG_SIDEBAR)
+        shell = tk.Frame(root, bg=BG_COLOR)
         shell.pack(fill=tk.BOTH, expand=True)
 
-        # Sidebar
-        self.sidebar = tk.Frame(shell, bg=BG_SIDEBAR, width=210)
+        # Sidebar container (sidebar + right border line)
+        sidebar_wrapper = tk.Frame(shell, bg=BG_SIDEBAR)
+        sidebar_wrapper.pack(side=tk.LEFT, fill=tk.Y)
+
+        self.sidebar = tk.Frame(sidebar_wrapper, bg=BG_SIDEBAR, width=220)
         self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
         self.sidebar.pack_propagate(False)
+
+        # Thin right border (like Closure)
+        tk.Frame(sidebar_wrapper, bg=SIDEBAR_BORDER, width=1).pack(side=tk.LEFT, fill=tk.Y)
 
         # Content
         self.content = tk.Frame(shell, bg=BG_COLOR)
@@ -72,37 +80,25 @@ class App:
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
     def _build_sidebar(self) -> None:
-        # Logo / title
+        # Logo area
         logo_frame = tk.Frame(self.sidebar, bg=BG_SIDEBAR)
-        logo_frame.pack(fill=tk.X, pady=(20, 8))
+        logo_frame.pack(fill=tk.X, pady=(24, 20))
 
         tk.Label(
             logo_frame,
             text="⚕",
-            font=("Segoe UI", 22),
+            font=("Segoe UI", 20),
             bg=BG_SIDEBAR,
             fg=ACCENT,
-        ).pack(side=tk.LEFT, padx=(16, 8))
+        ).pack(side=tk.LEFT, padx=(18, 8))
 
         tk.Label(
             logo_frame,
             text="MedSystem",
-            font=("Segoe UI", 13, "bold"),
+            font=("Segoe UI", 14, "bold"),
             bg=BG_SIDEBAR,
-            fg="#FFFFFF",
+            fg=TEXT_COLOR,
         ).pack(side=tk.LEFT)
-
-        # Divider
-        tk.Frame(self.sidebar, bg="#1F2937", height=1).pack(fill=tk.X, padx=12, pady=(8, 12))
-
-        # Nav section label
-        tk.Label(
-            self.sidebar,
-            text="НАВИГАЦИЯ",
-            font=("Segoe UI", 8),
-            bg=BG_SIDEBAR,
-            fg="#4B5563",
-        ).pack(anchor="w", padx=18, pady=(0, 6))
 
         # Nav buttons
         nav_items = [
@@ -116,18 +112,8 @@ class App:
         self._sidebar_buttons: dict[str, SidebarButton] = {}
         for icon, label, cmd in nav_items:
             btn = SidebarButton(self.sidebar, text=label, icon=icon, command=lambda c=cmd, l=label: self._nav_click(c, l))
-            btn.pack(fill=tk.X, padx=8, pady=2)
+            btn.pack(fill=tk.X, padx=10, pady=1)
             self._sidebar_buttons[label] = btn
-
-        # Bottom section
-        tk.Frame(self.sidebar, bg="#1F2937", height=1).pack(fill=tk.X, padx=12, pady=(16, 8), side=tk.BOTTOM)
-        tk.Label(
-            self.sidebar,
-            text="Med System v2.0",
-            font=("Segoe UI", 8),
-            bg=BG_SIDEBAR,
-            fg="#374151",
-        ).pack(side=tk.BOTTOM, pady=(0, 16))
 
     def _nav_click(self, command, label: str) -> None:
         for lbl, btn in self._sidebar_buttons.items():
@@ -141,7 +127,17 @@ class App:
     # ── Pages ─────────────────────────────────────────────────────────────────
     def _build_pages(self) -> None:
         c = self.content
-        self.main_page = MainPage(c, on_employees=self.show_employees_page, on_students=self.show_students_page, on_medicines=self.show_medicines_page, on_appeals=self.show_appeals_page)
+        self.main_page = MainPage(
+            c,
+            on_employees=self.show_employees_page,
+            on_students=self.show_students_page,
+            on_medicines=self.show_medicines_page,
+            on_appeals=self.show_appeals_page,
+            on_add_employee=self.show_add_employee_page,
+            on_add_student=self.show_add_student_page,
+            on_add_medicine=self.show_add_medicine_page,
+            on_add_appeal=self.show_add_appeal_page,
+        )
         self.employees_page = EmployeesPage(c, on_add=self.show_add_employee_page, on_back=self.show_main_page, on_select=self.show_employee_view_page, on_filter_changed=self.on_filter_changed)
         self.employee_form_page = EmployeeFormPage(c, on_save=self.save_employee, on_cancel=self.show_employees_page)
         self.employee_view_page = EmployeeViewPage(c, on_save=self.edit_employee, on_delete=self.delete_employee_action, on_cancel=self.show_employees_page)
@@ -537,6 +533,10 @@ class App:
 
 def run_app() -> None:
     init_db()
+
+    ctk.set_appearance_mode("light")
+    ctk.set_default_color_theme("blue")
+
     root = tk.Tk()
     App(root)
     root.mainloop()

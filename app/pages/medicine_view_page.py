@@ -2,7 +2,9 @@ import tkinter as tk
 from tkinter import messagebox
 from typing import Callable
 
-from app.ui import BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, FlatButton
+import customtkinter as ctk
+
+from app.ui import BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton
 
 DATE_PLACEHOLDER = "__.__.____"
 MED_FIELDS = [("name", "Название препарата"), ("quantity", "Количество"), ("unit", "Единицы измерения"), ("expiration_date", "Срок годности")]
@@ -14,7 +16,6 @@ class MedicineViewPage(tk.Frame):
         self._on_save = on_save
         self._on_delete = on_delete
         self._on_cancel = on_cancel
-        self._validate_cmd = (self.register(self._validate_input), "%P", "%W")
 
         self.form_vars: dict[str, tk.StringVar] = {}
         self.form_entries: dict[str, tk.Widget] = {}
@@ -45,15 +46,23 @@ class MedicineViewPage(tk.Frame):
             val_label.grid(row=row, column=1, sticky="ew", pady=4)
             self.form_labels[key] = val_label
 
-            field = tk.Entry(self.form_container, textvariable=var, font=("Segoe UI", 10),
-                             validate="key", validatecommand=self._validate_cmd,
-                             name=f"field_{key}", bg=ENTRY_BG, fg=ENTRY_FG, relief=tk.SOLID, borderwidth=1)
+            field = ctk.CTkEntry(
+                self.form_container,
+                textvariable=var,
+                font=ctk.CTkFont(family="Segoe UI", size=13),
+                fg_color=ENTRY_BG,
+                text_color=ENTRY_FG,
+                border_color=ENTRY_BORDER,
+                corner_radius=CORNER_RADIUS,
+                height=34,
+            )
             if key == "expiration_date":
-                field.bind("<FocusIn>", lambda _e, k=key: self._date_focus_in(k))
-                field.bind("<FocusOut>", lambda _e, k=key: self._date_focus_out(k))
-                field.bind("<KeyPress>", lambda ev, k=key: self._date_keypress(ev, k))
-                field.bind("<Control-v>", lambda ev, k=key: self._date_paste(ev, k))
-                field.bind("<<Paste>>", lambda ev, k=key: self._date_paste(ev, k))
+                inner_entry = field._entry if hasattr(field, '_entry') else field
+                inner_entry.bind("<FocusIn>", lambda _e, k=key: self._date_focus_in(k))
+                inner_entry.bind("<FocusOut>", lambda _e, k=key: self._date_focus_out(k))
+                inner_entry.bind("<KeyPress>", lambda ev, k=key: self._date_keypress(ev, k))
+                inner_entry.bind("<Control-v>", lambda ev, k=key: self._date_paste(ev, k))
+                inner_entry.bind("<<Paste>>", lambda ev, k=key: self._date_paste(ev, k))
             self.form_entries[key] = field
 
         tk.Label(self, text="Формат даты: ДД.ММ.ГГГГ", font=("Segoe UI", 8, "italic"), bg=BG_COLOR, fg=TEXT_MUTED).pack(anchor="w", padx=28)
@@ -61,11 +70,11 @@ class MedicineViewPage(tk.Frame):
         self.actions = tk.Frame(self, bg=BG_COLOR)
         self.actions.pack(fill=tk.X, padx=28, pady=(8, 24))
 
-        self.edit_button   = FlatButton(self.actions, primary=True,  text="Изменить",  command=self._toggle_edit_mode, font=("Segoe UI", 10))
-        self.delete_button = FlatButton(self.actions, primary=False, danger=True, text="Удалить",   command=self._delete, font=("Segoe UI", 10))
-        self.back_button   = FlatButton(self.actions, primary=False, text="Назад",     command=self._on_cancel, font=("Segoe UI", 10))
-        self.save_button   = FlatButton(self.actions, primary=True,  text="Сохранить", command=self._submit, font=("Segoe UI", 10))
-        self.cancel_button = FlatButton(self.actions, primary=False, text="Отмена",    command=self._cancel_edit, font=("Segoe UI", 10))
+        self.edit_button   = FlatButton(self.actions, primary=True,  text="Изменить",  command=self._toggle_edit_mode, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.delete_button = FlatButton(self.actions, primary=False, danger=True, text="Удалить",   command=self._delete, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.back_button   = FlatButton(self.actions, primary=False, text="Назад",     command=self._on_cancel, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.save_button   = FlatButton(self.actions, primary=True,  text="Сохранить", command=self._submit, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.cancel_button = FlatButton(self.actions, primary=False, text="Отмена",    command=self._cancel_edit, font=ctk.CTkFont(family="Segoe UI", size=12))
 
         self.edit_button.pack(side=tk.LEFT)
         self.delete_button.pack(side=tk.LEFT, padx=(10, 0))
@@ -105,11 +114,6 @@ class MedicineViewPage(tk.Frame):
         if self.medicine_id and messagebox.askyesno("Подтверждение", "Удалить это лекарство?"):
             self._on_delete(self.medicine_id)
 
-    def _validate_input(self, proposed: str, widget_path: str) -> bool:
-        key = widget_path.split(".")[-1].replace("field_", "")
-        if key == "quantity" and proposed and not proposed.isdigit(): return False
-        return True
-
     def _submit(self) -> None:
         if not self.medicine_id: return
         data = {k: v.get().strip() for k, v in self.form_vars.items()}
@@ -142,22 +146,28 @@ class MedicineViewPage(tk.Frame):
     def _digits(self, v): return "".join(c for c in v if c.isdigit())[:8]
     def _replace(self, d, s, e, r=""): return (d[:s] + r + d[e:])[:8]
 
+    def _get_inner_entry(self, k):
+        widget = self.form_entries[k]
+        if isinstance(widget, ctk.CTkEntry) and hasattr(widget, '_entry'):
+            return widget._entry
+        return widget
+
     def _apply(self, k, digits, caret):
         self.form_vars[k].set(self._fmt(digits[:8]))
-        e = self.form_entries[k]
-        e.icursor(self._i2d(max(0, min(caret, len(digits)))))  # type: ignore
+        e = self._get_inner_entry(k)
+        e.icursor(self._i2d(max(0, min(caret, len(digits)))))
         return "break"
 
     def _date_keypress(self, ev, k):
-        e = self.form_entries[k]
-        cur = e.get()  # type: ignore
+        e = self._get_inner_entry(k)
+        cur = e.get()
         if cur == DATE_PLACEHOLDER: cur = ""
         digits = self._digits(cur)
-        has_sel = e.selection_present()  # type: ignore
-        s = en = self._d2i(cur, e.index(tk.INSERT))  # type: ignore
+        has_sel = e.selection_present()
+        s = en = self._d2i(cur, e.index(tk.INSERT))
         if has_sel:
-            s = self._d2i(cur, e.index("sel.first"))  # type: ignore
-            en = self._d2i(cur, e.index("sel.last"))  # type: ignore
+            s = self._d2i(cur, e.index("sel.first"))
+            en = self._d2i(cur, e.index("sel.last"))
         ctrl = bool(ev.state & 0x4)
         if ctrl and ev.keysym.lower() in {"a", "c", "x"}: return None
         if ctrl and ev.keysym.lower() == "v": return self._date_paste(ev, k)
@@ -176,18 +186,18 @@ class MedicineViewPage(tk.Frame):
         return "break"
 
     def _date_paste(self, _ev, k):
-        e = self.form_entries[k]
-        cur = e.get()  # type: ignore
+        e = self._get_inner_entry(k)
+        cur = e.get()
         if cur == DATE_PLACEHOLDER: cur = ""
         digits = self._digits(cur)
         try: cb = self.clipboard_get()
         except tk.TclError: return "break"
         pd = "".join(c for c in cb if c.isdigit())
         if not pd: return "break"
-        has_sel = e.selection_present()  # type: ignore
-        s = en = self._d2i(cur, e.index(tk.INSERT))  # type: ignore
+        has_sel = e.selection_present()
+        s = en = self._d2i(cur, e.index(tk.INSERT))
         if has_sel:
-            s = self._d2i(cur, e.index("sel.first"))  # type: ignore
-            en = self._d2i(cur, e.index("sel.last"))  # type: ignore
+            s = self._d2i(cur, e.index("sel.first"))
+            en = self._d2i(cur, e.index("sel.last"))
         nd = self._replace(digits, s, en, pd)
         return self._apply(k, nd, min(s + len(pd), len(nd)))

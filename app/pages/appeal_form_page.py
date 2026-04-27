@@ -2,7 +2,9 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Callable
 
-from app.ui import BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, FlatButton
+import customtkinter as ctk
+
+from app.ui import BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton
 
 
 class AppealFormPage(tk.Frame):
@@ -25,7 +27,12 @@ class AppealFormPage(tk.Frame):
 
         # Title
         tk.Label(inner, text="Заголовок", font=("Segoe UI", 9), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
-        tk.Entry(inner, textvariable=self.title_var, font=("Segoe UI", 10), bg=ENTRY_BG, fg=ENTRY_FG, relief=tk.SOLID, borderwidth=1).pack(fill=tk.X, ipady=5, pady=(0, 12))
+        ctk.CTkEntry(
+            inner, textvariable=self.title_var,
+            font=ctk.CTkFont(family="Segoe UI", size=13),
+            fg_color=ENTRY_BG, text_color=ENTRY_FG,
+            border_color=ENTRY_BORDER, corner_radius=CORNER_RADIUS, height=36,
+        ).pack(fill=tk.X, pady=(0, 12))
 
         # Sender
         tk.Label(inner, text="От кого", font=("Segoe UI", 9), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
@@ -39,8 +46,8 @@ class AppealFormPage(tk.Frame):
 
         bar = tk.Frame(self, bg=BG_COLOR)
         bar.pack(fill=tk.X, padx=28, pady=(8, 24))
-        FlatButton(bar, primary=True, text="Сохранить", command=self._submit, font=("Segoe UI", 10)).pack(side=tk.LEFT)
-        FlatButton(bar, primary=False, text="Отмена", command=self._on_cancel, font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(10, 0))
+        FlatButton(bar, primary=True, text="Сохранить", command=self._submit, font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side=tk.LEFT)
+        FlatButton(bar, primary=False, text="Отмена", command=self._on_cancel, font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side=tk.LEFT, padx=(10, 0))
 
     def set_senders(self, senders: list[str]) -> None:
         self.sender_combo["values"] = senders
@@ -89,7 +96,12 @@ class AppealViewPage(tk.Frame):
         tk.Label(self.form_container, text="Заголовок", font=("Segoe UI", 9), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
         self.title_label = tk.Label(self.form_container, textvariable=self.title_var, font=("Segoe UI", 11, "bold"), bg=BG_CARD, fg=TEXT_COLOR, anchor="w")
         self.title_label.pack(fill=tk.X, pady=(0, 12))
-        self.title_entry = tk.Entry(self.form_container, textvariable=self.title_var, font=("Segoe UI", 10), bg=ENTRY_BG, fg=ENTRY_FG, relief=tk.SOLID, borderwidth=1)
+        self.title_entry = ctk.CTkEntry(
+            self.form_container, textvariable=self.title_var,
+            font=ctk.CTkFont(family="Segoe UI", size=13),
+            fg_color=ENTRY_BG, text_color=ENTRY_FG,
+            border_color=ENTRY_BORDER, corner_radius=CORNER_RADIUS, height=36,
+        )
 
         # Info row (view mode)
         self.info_frame = tk.Frame(self.form_container, bg=BG_CARD)
@@ -114,11 +126,11 @@ class AppealViewPage(tk.Frame):
         self.actions = tk.Frame(self, bg=BG_COLOR)
         self.actions.pack(fill=tk.X, padx=28, pady=(8, 24))
 
-        self.edit_button   = FlatButton(self.actions, primary=True,  text="Изменить",  command=self._toggle_edit_mode, font=("Segoe UI", 10))
-        self.delete_button = FlatButton(self.actions, primary=False, danger=True, text="Удалить",   command=self._delete, font=("Segoe UI", 10))
-        self.back_button   = FlatButton(self.actions, primary=False, text="Назад",     command=self._on_cancel, font=("Segoe UI", 10))
-        self.save_button   = FlatButton(self.actions, primary=True,  text="Сохранить", command=self._submit, font=("Segoe UI", 10))
-        self.cancel_button = FlatButton(self.actions, primary=False, text="Отмена",    command=self._cancel_edit, font=("Segoe UI", 10))
+        self.edit_button   = FlatButton(self.actions, primary=True,  text="Изменить",  command=self._toggle_edit_mode, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.delete_button = FlatButton(self.actions, primary=False, danger=True, text="Удалить",   command=self._delete, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.back_button   = FlatButton(self.actions, primary=False, text="Назад",     command=self._on_cancel, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.save_button   = FlatButton(self.actions, primary=True,  text="Сохранить", command=self._submit, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.cancel_button = FlatButton(self.actions, primary=False, text="Отмена",    command=self._cancel_edit, font=ctk.CTkFont(family="Segoe UI", size=12))
 
         self.edit_button.pack(side=tk.LEFT)
         self.delete_button.pack(side=tk.LEFT, padx=(10, 0))
@@ -147,7 +159,7 @@ class AppealViewPage(tk.Frame):
             self.edit_button.pack_forget(); self.delete_button.pack_forget(); self.back_button.pack_forget()
             self.save_button.pack(side=tk.LEFT); self.cancel_button.pack(side=tk.LEFT, padx=(10, 0))
             self.title_label.pack_forget()
-            self.title_entry.pack(fill=tk.X, ipady=5, pady=(0, 12), before=self.info_frame)
+            self.title_entry.pack(fill=tk.X, pady=(0, 12), before=self.info_frame)
             self.info_frame.pack_forget()
             self.sender_edit_frame.pack(fill=tk.X, pady=(0, 12), before=self.text_widget)
             self.text_widget.config(state=tk.NORMAL)

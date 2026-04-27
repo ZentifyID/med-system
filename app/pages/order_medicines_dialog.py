@@ -2,7 +2,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Callable, Any
 
-from app.ui import BG_CARD, BG_COLOR, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, ACCENT, FlatButton
+import customtkinter as ctk
+
+from app.ui import BG_CARD, BG_COLOR, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, ENTRY_BORDER, ACCENT, CORNER_RADIUS, FlatButton
 
 
 class OrderMedicinesDialog(tk.Toplevel):
@@ -58,16 +60,26 @@ class OrderMedicinesDialog(tk.Toplevel):
             inputs = tk.Frame(content, bg=BG_CARD)
             inputs.pack(fill=tk.X, pady=(6, 0))
             tk.Label(inputs, text="Новое кол-во:", font=("Segoe UI", 9), bg=BG_CARD, fg=TEXT_MUTED).pack(side=tk.LEFT)
-            tk.Entry(inputs, textvariable=qty_var, width=8, bg=ENTRY_BG, fg=ENTRY_FG, relief=tk.SOLID, borderwidth=1).pack(side=tk.LEFT, padx=(4, 16))
+            ctk.CTkEntry(
+                inputs, textvariable=qty_var, width=80,
+                fg_color=ENTRY_BG, text_color=ENTRY_FG,
+                border_color=ENTRY_BORDER, corner_radius=CORNER_RADIUS, height=30,
+                font=ctk.CTkFont(family="Segoe UI", size=12),
+            ).pack(side=tk.LEFT, padx=(4, 16))
             tk.Label(inputs, text="Срок (ДД.ММ.ГГГГ):", font=("Segoe UI", 9), bg=BG_CARD, fg=TEXT_MUTED).pack(side=tk.LEFT)
-            tk.Entry(inputs, textvariable=exp_var, width=12, bg=ENTRY_BG, fg=ENTRY_FG, relief=tk.SOLID, borderwidth=1).pack(side=tk.LEFT, padx=(4, 0))
+            ctk.CTkEntry(
+                inputs, textvariable=exp_var, width=120,
+                fg_color=ENTRY_BG, text_color=ENTRY_FG,
+                border_color=ENTRY_BORDER, corner_radius=CORNER_RADIUS, height=30,
+                font=ctk.CTkFont(family="Segoe UI", size=12),
+            ).pack(side=tk.LEFT, padx=(4, 0))
 
         # Actions
         tk.Frame(self, bg=BORDER, height=1).pack(fill=tk.X, padx=24, pady=(12, 0))
         bar = tk.Frame(self, bg=BG_COLOR)
         bar.pack(fill=tk.X, padx=24, pady=16)
-        FlatButton(bar, primary=True, text="Подтвердить заказ", command=self._on_confirm_click, font=("Segoe UI", 10)).pack(side=tk.LEFT)
-        FlatButton(bar, primary=False, text="Отмена", command=self.destroy, font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(10, 0))
+        FlatButton(bar, primary=True, text="Подтвердить заказ", command=self._on_confirm_click, font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side=tk.LEFT)
+        FlatButton(bar, primary=False, text="Отмена", command=self.destroy, font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side=tk.LEFT, padx=(10, 0))
 
     def _on_confirm_click(self) -> None:
         result = []

@@ -2,7 +2,9 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Callable, cast
 
-from app.ui import BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, FlatButton
+import customtkinter as ctk
+
+from app.ui import BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton
 from app.validators import DATE_FIELDS, STUDENT_FIELD_LABELS as FIELD_LABELS, allow_typed_value, validate_student_payload
 
 DATE_PLACEHOLDER = "__.__.____"
@@ -32,7 +34,6 @@ class StudentViewPage(tk.Frame):
         self._on_save = on_save
         self._on_delete = on_delete
         self._on_cancel = on_cancel
-        self._validate_cmd = (self.register(self._validate_input), "%P", "%W")
 
         self.form_vars: dict[str, tk.StringVar] = {}
         self.form_entries: dict[str, tk.Widget] = {}
@@ -80,15 +81,23 @@ class StudentViewPage(tk.Frame):
                 field = ttk.Combobox(self.form_container, textvariable=var, state="readonly", font=("Segoe UI", 10))
                 self.group_combobox = field
             else:
-                field = tk.Entry(self.form_container, textvariable=var, font=("Segoe UI", 10),
-                                 validate="key", validatecommand=self._validate_cmd,
-                                 name=f"field_{key}", bg=ENTRY_BG, fg=ENTRY_FG, relief=tk.SOLID, borderwidth=1)
+                field = ctk.CTkEntry(
+                    self.form_container,
+                    textvariable=var,
+                    font=ctk.CTkFont(family="Segoe UI", size=13),
+                    fg_color=ENTRY_BG,
+                    text_color=ENTRY_FG,
+                    border_color=ENTRY_BORDER,
+                    corner_radius=CORNER_RADIUS,
+                    height=34,
+                )
                 if key in DATE_FIELDS:
-                    field.bind("<FocusIn>", lambda _e, k=key: self._on_date_focus_in(k))
-                    field.bind("<FocusOut>", lambda _e, k=key: self._on_date_focus_out(k))
-                    field.bind("<KeyPress>", lambda ev, k=key: self._on_date_keypress(ev, k))
-                    field.bind("<Control-v>", lambda ev, k=key: self._on_date_paste(ev, k))
-                    field.bind("<<Paste>>", lambda ev, k=key: self._on_date_paste(ev, k))
+                    inner_entry = field._entry if hasattr(field, '_entry') else field
+                    inner_entry.bind("<FocusIn>", lambda _e, k=key: self._on_date_focus_in(k))
+                    inner_entry.bind("<FocusOut>", lambda _e, k=key: self._on_date_focus_out(k))
+                    inner_entry.bind("<KeyPress>", lambda ev, k=key: self._on_date_keypress(ev, k))
+                    inner_entry.bind("<Control-v>", lambda ev, k=key: self._on_date_paste(ev, k))
+                    inner_entry.bind("<<Paste>>", lambda ev, k=key: self._on_date_paste(ev, k))
             self.form_entries[key] = field
 
         tk.Label(self, text="Формат дат: ДД.ММ.ГГГГ", font=("Segoe UI", 8, "italic"), bg=BG_COLOR, fg=TEXT_MUTED).pack(anchor="w", padx=28)
@@ -96,11 +105,11 @@ class StudentViewPage(tk.Frame):
         self.actions = tk.Frame(self, bg=BG_COLOR)
         self.actions.pack(fill=tk.X, padx=28, pady=(8, 24))
 
-        self.edit_button   = FlatButton(self.actions, primary=True,  text="Изменить",  command=self._toggle_edit_mode, font=("Segoe UI", 10))
-        self.delete_button = FlatButton(self.actions, primary=False, danger=True, text="Удалить", command=self._delete_student, font=("Segoe UI", 10))
-        self.back_button   = FlatButton(self.actions, primary=False, text="Назад",     command=self._on_cancel, font=("Segoe UI", 10))
-        self.save_button   = FlatButton(self.actions, primary=True,  text="Сохранить", command=self._submit, font=("Segoe UI", 10))
-        self.cancel_button = FlatButton(self.actions, primary=False, text="Отмена",    command=self._cancel_edit, font=("Segoe UI", 10))
+        self.edit_button   = FlatButton(self.actions, primary=True,  text="Изменить",  command=self._toggle_edit_mode, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.delete_button = FlatButton(self.actions, primary=False, danger=True, text="Удалить", command=self._delete_student, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.back_button   = FlatButton(self.actions, primary=False, text="Назад",     command=self._on_cancel, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.save_button   = FlatButton(self.actions, primary=True,  text="Сохранить", command=self._submit, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.cancel_button = FlatButton(self.actions, primary=False, text="Отмена",    command=self._cancel_edit, font=ctk.CTkFont(family="Segoe UI", size=12))
 
         self.edit_button.pack(side=tk.LEFT)
         self.delete_button.pack(side=tk.LEFT, padx=(10, 0))
@@ -162,10 +171,6 @@ class StudentViewPage(tk.Frame):
         if self.student_id and messagebox.askyesno("Подтверждение", "Удалить этого студента?"):
             self._on_delete(self.student_id)
 
-    def _validate_input(self, proposed: str, widget_path: str) -> bool:
-        key = widget_path.split(".")[-1].replace("field_", "")
-        return allow_typed_value(key, proposed) if key in self.form_vars else True
-
     def _submit(self) -> None:
         if not self.student_id: return
         data = {k: v.get().strip() for k, v in self.form_vars.items()}
@@ -196,15 +201,21 @@ class StudentViewPage(tk.Frame):
     def _digits(self, v): return "".join(c for c in v if c.isdigit())[:8]
     def _replace(self, d, s, e, r=""): return (d[:s] + r + d[e:])[:8]
 
+    def _get_inner_entry(self, k):
+        widget = self.form_entries[k]
+        if isinstance(widget, ctk.CTkEntry) and hasattr(widget, '_entry'):
+            return widget._entry
+        return widget
+
     def _apply(self, k, digits, caret):
         digits = digits[:8]
         self.form_vars[k].set(self._fmt(digits))
-        e = cast(tk.Entry, self.form_entries[k])
+        e = self._get_inner_entry(k)
         e.icursor(self._i2d(max(0, min(caret, len(digits)))))
         return "break"
 
     def _on_date_keypress(self, ev, k):
-        e = cast(tk.Entry, self.form_entries[k])
+        e = self._get_inner_entry(k)
         cur = e.get()
         if cur == DATE_PLACEHOLDER: cur = ""
         digits = self._digits(cur)
@@ -232,7 +243,7 @@ class StudentViewPage(tk.Frame):
         return "break"
 
     def _on_date_paste(self, _ev, k):
-        e = cast(tk.Entry, self.form_entries[k])
+        e = self._get_inner_entry(k)
         cur = e.get()
         if cur == DATE_PLACEHOLDER: cur = ""
         digits = self._digits(cur)

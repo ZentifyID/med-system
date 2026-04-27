@@ -2,7 +2,9 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Callable
 
-from app.ui import BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, ENTRY_BORDER, FlatButton
+import customtkinter as ctk
+
+from app.ui import BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton
 from app.validators import DATE_FIELDS, STUDENT_FIELD_LABELS as FIELD_LABELS, allow_typed_value, validate_student_payload
 
 DATE_PLACEHOLDER = "__.__.____"
@@ -31,9 +33,8 @@ class StudentFormPage(tk.Frame):
         super().__init__(master, bg=BG_COLOR)
         self._on_save = on_save
         self._on_cancel = on_cancel
-        self._validate_cmd = (self.register(self._validate_input), "%P", "%W")
         self.form_vars: dict[str, tk.StringVar] = {}
-        self.form_entries: dict[str, tk.Entry] = {}
+        self.form_entries: dict[str, tk.Entry | ctk.CTkEntry] = {}
         self.group_mapping: dict[str, str] = {}
         self.group_combobox: ttk.Combobox | None = None
 
@@ -70,23 +71,31 @@ class StudentFormPage(tk.Frame):
                 cb.grid(row=row, column=input_col, sticky="ew", padx=(0, 8 if block == 0 else 0), pady=4)
                 self.group_combobox = cb
             else:
-                entry = tk.Entry(inner, textvariable=var, font=("Segoe UI", 10),
-                                 validate="key", validatecommand=self._validate_cmd,
-                                 name=f"field_{key}", bg=ENTRY_BG, fg=ENTRY_FG, relief=tk.SOLID, borderwidth=1)
+                entry = ctk.CTkEntry(
+                    inner,
+                    textvariable=var,
+                    font=ctk.CTkFont(family="Segoe UI", size=13),
+                    fg_color=ENTRY_BG,
+                    text_color=ENTRY_FG,
+                    border_color=ENTRY_BORDER,
+                    corner_radius=CORNER_RADIUS,
+                    height=34,
+                )
                 entry.grid(row=row, column=input_col, sticky="ew", padx=(0, 8 if block == 0 else 0), pady=4)
                 self.form_entries[key] = entry
                 if key in DATE_FIELDS:
-                    entry.bind("<FocusIn>", lambda _e, k=key: self._on_date_focus_in(k))
-                    entry.bind("<FocusOut>", lambda _e, k=key: self._on_date_focus_out(k))
-                    entry.bind("<KeyPress>", lambda ev, k=key: self._on_date_keypress(ev, k))
-                    entry.bind("<Control-v>", lambda ev, k=key: self._on_date_paste(ev, k))
-                    entry.bind("<<Paste>>", lambda ev, k=key: self._on_date_paste(ev, k))
+                    inner_entry = entry._entry if hasattr(entry, '_entry') else entry
+                    inner_entry.bind("<FocusIn>", lambda _e, k=key: self._on_date_focus_in(k))
+                    inner_entry.bind("<FocusOut>", lambda _e, k=key: self._on_date_focus_out(k))
+                    inner_entry.bind("<KeyPress>", lambda ev, k=key: self._on_date_keypress(ev, k))
+                    inner_entry.bind("<Control-v>", lambda ev, k=key: self._on_date_paste(ev, k))
+                    inner_entry.bind("<<Paste>>", lambda ev, k=key: self._on_date_paste(ev, k))
 
         tk.Label(self, text="Формат дат: ДД.ММ.ГГГГ", font=("Segoe UI", 8, "italic"), bg=BG_COLOR, fg=TEXT_MUTED).pack(anchor="w", padx=28)
         actions = tk.Frame(self, bg=BG_COLOR)
         actions.pack(fill=tk.X, padx=28, pady=(8, 24))
-        FlatButton(actions, primary=True, text="Сохранить", command=self._submit, font=("Segoe UI", 10)).pack(side=tk.LEFT)
-        FlatButton(actions, primary=False, text="Отмена", command=self._on_cancel, font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(10, 0))
+        FlatButton(actions, primary=True, text="Сохранить", command=self._submit, font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side=tk.LEFT)
+        FlatButton(actions, primary=False, text="Отмена", command=self._on_cancel, font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side=tk.LEFT, padx=(10, 0))
 
     def set_groups(self, groups: list[tuple[int, str]]) -> None:
         self.group_mapping = {name: str(id) for id, name in groups}
@@ -101,10 +110,6 @@ class StudentFormPage(tk.Frame):
                 var.set(DATE_PLACEHOLDER)
             elif key != "group_id":
                 var.set("")
-
-    def _validate_input(self, proposed: str, widget_path: str) -> bool:
-        key = widget_path.split(".")[-1].replace("field_", "")
-        return allow_typed_value(key, proposed) if key in self.form_vars else True
 
     def _submit(self) -> None:
         data = {k: v.get().strip() for k, v in self.form_vars.items()}
@@ -135,15 +140,21 @@ class StudentFormPage(tk.Frame):
     def _digits(self, v): return "".join(c for c in v if c.isdigit())[:8]
     def _replace(self, d, s, e, r=""): return (d[:s] + r + d[e:])[:8]
 
+    def _get_inner_entry(self, k):
+        widget = self.form_entries[k]
+        if isinstance(widget, ctk.CTkEntry) and hasattr(widget, '_entry'):
+            return widget._entry
+        return widget
+
     def _apply(self, k, digits, caret):
         digits = digits[:8]
         self.form_vars[k].set(self._fmt(digits))
-        e = self.form_entries[k]
+        e = self._get_inner_entry(k)
         e.icursor(self._i2d(max(0, min(caret, len(digits)))))
         return "break"
 
     def _on_date_keypress(self, ev, k):
-        e = self.form_entries[k]
+        e = self._get_inner_entry(k)
         cur = e.get()
         if cur == DATE_PLACEHOLDER: cur = ""
         digits = self._digits(cur)
@@ -171,7 +182,7 @@ class StudentFormPage(tk.Frame):
         return "break"
 
     def _on_date_paste(self, _ev, k):
-        e = self.form_entries[k]
+        e = self._get_inner_entry(k)
         cur = e.get()
         if cur == DATE_PLACEHOLDER: cur = ""
         digits = self._digits(cur)
