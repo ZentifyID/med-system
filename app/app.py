@@ -1,8 +1,10 @@
+import os
 import sqlite3
 import tkinter as tk
 from datetime import datetime, timedelta
 from tkinter import messagebox
 
+from PIL import Image
 import customtkinter as ctk
 
 from app.database import (
@@ -41,8 +43,8 @@ class App:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("Med System")
-        self.root.geometry("1140x700")
-        self.root.minsize(900, 560)
+        self.root.geometry("1280x820")
+        self.root.minsize(1024, 640)
         self.root.configure(bg=BG_COLOR)
         setup_styles(root)
 
@@ -73,10 +75,31 @@ class App:
         self.content = tk.Frame(shell, bg=BG_COLOR)
         self.content.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+        # Загрузка иконок для использования во всем приложении
+        self.icons = self._load_icons()
+
         self._build_sidebar()
         self._build_pages()
 
         self.show_main_page()
+
+    def _load_icons(self) -> dict:
+        def get_icon(name, emoji):
+            path = os.path.join("assets", "icons", f"{name}.png")
+            if os.path.exists(path):
+                try:
+                    return ctk.CTkImage(light_image=Image.open(path), size=(20, 20))
+                except Exception:
+                    return emoji
+            return emoji
+
+        return {
+            "home":      get_icon("home",      "🏠"),
+            "employees": get_icon("employees", "👤"),
+            "students":  get_icon("students",  "🎓"),
+            "medicine":  get_icon("medicine",  "💊"),
+            "appeals":   get_icon("appeals",   "📋"),
+        }
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
     def _build_sidebar(self) -> None:
@@ -102,11 +125,11 @@ class App:
 
         # Nav buttons
         nav_items = [
-            ("🏠", "Главная",     self.show_main_page),
-            ("👤", "Сотрудники",  self.show_employees_page),
-            ("🎓", "Студенты",    self.show_students_page),
-            ("💊", "Лекарства",   self.show_medicines_page),
-            ("📋", "Обращения",   self.show_appeals_page),
+            (self.icons["home"],      "Главная",     self.show_main_page),
+            (self.icons["employees"], "Сотрудники",  self.show_employees_page),
+            (self.icons["students"],  "Студенты",    self.show_students_page),
+            (self.icons["medicine"],  "Лекарства",   self.show_medicines_page),
+            (self.icons["appeals"],   "Обращения",   self.show_appeals_page),
         ]
 
         self._sidebar_buttons: dict[str, SidebarButton] = {}
@@ -137,6 +160,7 @@ class App:
             on_add_student=self.show_add_student_page,
             on_add_medicine=self.show_add_medicine_page,
             on_add_appeal=self.show_add_appeal_page,
+            icons=self.icons,
         )
         self.employees_page = EmployeesPage(c, on_add=self.show_add_employee_page, on_back=self.show_main_page, on_select=self.show_employee_view_page, on_filter_changed=self.on_filter_changed)
         self.employee_form_page = EmployeeFormPage(c, on_save=self.save_employee, on_cancel=self.show_employees_page)
@@ -226,7 +250,7 @@ class App:
                     continue
                 if self.filter_status == "Истекают (2 недели)" and not is_expiring:
                     continue
-            filtered.append((id, fio, affiliation))
+            filtered.append((id, fio, affiliation, san_date, med_date, flu_date))
         self.employees_page.set_rows(filtered)
 
     def save_employee(self, data: dict) -> None:
@@ -306,7 +330,7 @@ class App:
                     continue
                 if self.filter_status_students == "Истекают (2 недели)" and not is_expiring:
                     continue
-            filtered.append((id, fio, group_name))
+            filtered.append((id, fio, group_name, san_date, med_date, flu_date))
         self.students_page.set_rows(filtered)
 
     def save_student(self, data: dict) -> None:

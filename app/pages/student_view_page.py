@@ -4,7 +4,11 @@ from typing import Callable, cast
 
 import customtkinter as ctk
 
-from app.ui import BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton
+from app.ui import (
+    BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, 
+    ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
+    FONT_FAMILY, FONT_MEDIUM
+)
 from app.validators import DATE_FIELDS, STUDENT_FIELD_LABELS as FIELD_LABELS, allow_typed_value, validate_student_payload
 
 DATE_PLACEHOLDER = "__.__.____"
@@ -45,16 +49,27 @@ class StudentViewPage(tk.Frame):
         self.group_mapping_reverse: dict[str, str] = {}
         self.group_combobox: ttk.Combobox | None = None
 
+        # Header
         hdr = tk.Frame(self, bg=BG_COLOR)
-        hdr.pack(fill=tk.X, padx=28, pady=(24, 0))
-        self.title_label = tk.Label(hdr, text="Студент", font=("Segoe UI", 20, "bold"), bg=BG_COLOR, fg=TEXT_COLOR)
+        hdr.pack(fill=tk.X, padx=36, pady=(32, 0))
+        self.title_label = tk.Label(hdr, text="Студент", font=(FONT_FAMILY, 24, "bold"), bg=BG_COLOR, fg=TEXT_COLOR)
         self.title_label.pack(side=tk.LEFT)
-        tk.Frame(self, bg=BORDER, height=1).pack(fill=tk.X, padx=28, pady=(12, 16))
+        
+        # Divider
+        tk.Frame(self, bg=BORDER, height=1).pack(fill=tk.X, padx=36, pady=(16, 24))
 
-        card = tk.Frame(self, bg=BG_CARD)
-        card.pack(fill=tk.BOTH, expand=True, padx=28, pady=(0, 8))
+        # Card Container
+        card = ctk.CTkFrame(
+            self,
+            fg_color=BG_CARD,
+            border_color=BORDER,
+            border_width=1,
+            corner_radius=12
+        )
+        card.pack(fill=tk.BOTH, expand=True, padx=36, pady=(0, 16))
+        
         self.form_container = tk.Frame(card, bg=BG_CARD)
-        self.form_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=16)
+        self.form_container.pack(fill=tk.BOTH, expand=True, padx=24, pady=24)
 
         for i in range(2):
             self.form_container.grid_columnconfigure(i * 2, weight=0)
@@ -66,30 +81,32 @@ class StudentViewPage(tk.Frame):
             row = idx if idx < left_count else idx - left_count
             label_col = block * 2
             input_col = label_col + 1
-
-            tk.Label(self.form_container, text=label, font=("Segoe UI", 9), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(
-                row=row, column=label_col, sticky="w", padx=(0 if block == 0 else 24, 8), pady=(0, 2))
+            
+            tk.Label(self.form_container, text=label, font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(
+                row=row, column=label_col, sticky="w", padx=(0 if block == 0 else 32, 8), pady=8)
 
             var = tk.StringVar()
             self.form_vars[key] = var
 
-            val_label = tk.Label(self.form_container, textvariable=var, font=("Segoe UI", 10), bg=BG_CARD, fg=TEXT_COLOR, anchor="w")
-            val_label.grid(row=row, column=input_col, sticky="ew", padx=(0, 8 if block == 0 else 0), pady=4)
+            # View label
+            val_label = tk.Label(self.form_container, textvariable=var, font=(FONT_FAMILY, 11), bg=BG_CARD, fg=TEXT_COLOR, anchor="w")
+            val_label.grid(row=row, column=input_col, sticky="ew", padx=(0, 8 if block == 0 else 0), pady=(10, 6))
             self.form_labels[key] = val_label
 
+            # Edit widget
             if key == "group_id":
-                field = ttk.Combobox(self.form_container, textvariable=var, state="readonly", font=("Segoe UI", 10))
+                field = ttk.Combobox(self.form_container, textvariable=var, state="readonly", font=(FONT_FAMILY, 10))
                 self.group_combobox = field
             else:
                 field = ctk.CTkEntry(
                     self.form_container,
                     textvariable=var,
-                    font=ctk.CTkFont(family="Segoe UI", size=13),
+                    font=(FONT_FAMILY, 14),
                     fg_color=ENTRY_BG,
                     text_color=ENTRY_FG,
                     border_color=ENTRY_BORDER,
                     corner_radius=CORNER_RADIUS,
-                    height=34,
+                    height=40,
                 )
                 if key in DATE_FIELDS:
                     inner_entry = field._entry if hasattr(field, '_entry') else field
@@ -100,20 +117,26 @@ class StudentViewPage(tk.Frame):
                     inner_entry.bind("<<Paste>>", lambda ev, k=key: self._on_date_paste(ev, k))
             self.form_entries[key] = field
 
-        tk.Label(self, text="Формат дат: ДД.ММ.ГГГГ", font=("Segoe UI", 8, "italic"), bg=BG_COLOR, fg=TEXT_MUTED).pack(anchor="w", padx=28)
+        self.date_info = tk.Label(self, text="Формат дат: ДД.ММ.ГГГГ", font=(FONT_FAMILY, 9, "italic"), bg=BG_COLOR, fg=TEXT_MUTED)
+        self.date_info.pack(anchor="w", padx=36, pady=(0, 8))
+        self.date_info.pack_forget()
 
+        # Actions
         self.actions = tk.Frame(self, bg=BG_COLOR)
-        self.actions.pack(fill=tk.X, padx=28, pady=(8, 24))
+        self.actions.pack(fill=tk.X, padx=36, pady=(0, 32))
 
-        self.edit_button   = FlatButton(self.actions, primary=True,  text="Изменить",  command=self._toggle_edit_mode, font=ctk.CTkFont(family="Segoe UI", size=12))
-        self.delete_button = FlatButton(self.actions, primary=False, danger=True, text="Удалить", command=self._delete_student, font=ctk.CTkFont(family="Segoe UI", size=12))
-        self.back_button   = FlatButton(self.actions, primary=False, text="Назад",     command=self._on_cancel, font=ctk.CTkFont(family="Segoe UI", size=12))
-        self.save_button   = FlatButton(self.actions, primary=True,  text="Сохранить", command=self._submit, font=ctk.CTkFont(family="Segoe UI", size=12))
-        self.cancel_button = FlatButton(self.actions, primary=False, text="Отмена",    command=self._cancel_edit, font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.edit_button   = FlatButton(self.actions, primary=True,  text="Изменить",  command=self._toggle_edit_mode, height=44, width=140)
+        self.delete_button = FlatButton(self.actions, primary=False, danger=True, text="Удалить", command=self._delete_student, height=44, width=120)
+        self.back_button   = FlatButton(self.actions, primary=False, text="Назад",     command=self._on_cancel, height=44, width=100)
+        self.save_button   = FlatButton(self.actions, primary=True,  text="Сохранить", command=self._submit, height=44, width=160)
+        self.cancel_button = FlatButton(self.actions, primary=False, text="Отмена",    command=self._cancel_edit, height=44, width=120)
 
+        self._show_view_actions()
+
+    def _show_view_actions(self):
         self.edit_button.pack(side=tk.LEFT)
-        self.delete_button.pack(side=tk.LEFT, padx=(10, 0))
-        self.back_button.pack(side=tk.LEFT, padx=(10, 0))
+        self.delete_button.pack(side=tk.LEFT, padx=(12, 0))
+        self.back_button.pack(side=tk.RIGHT)
 
     def set_groups(self, groups: list[tuple[int, str]]) -> None:
         self.group_mapping = {name: str(id) for id, name in groups}
@@ -147,18 +170,18 @@ class StudentViewPage(tk.Frame):
             self.edit_button.pack_forget()
             self.delete_button.pack_forget()
             self.back_button.pack_forget()
-            self.save_button.pack(side=tk.LEFT)
-            self.cancel_button.pack(side=tk.LEFT, padx=(10, 0))
+            self.save_button.pack(side=tk.RIGHT)
+            self.cancel_button.pack(side=tk.RIGHT, padx=(0, 12))
+            self.date_info.pack(anchor="w", padx=36, pady=(0, 8))
             for key, lbl in self.form_labels.items():
                 gi = lbl.grid_info()
                 lbl.grid_remove()
-                self.form_entries[key].grid(row=gi["row"], column=gi["column"], sticky="ew", padx=(0, 8), pady=4)
+                self.form_entries[key].grid(row=gi["row"], column=gi["column"], sticky="ew", padx=(0, 8 if gi["column"] == 1 else 0), pady=4)
         else:
             self.save_button.pack_forget()
             self.cancel_button.pack_forget()
-            self.edit_button.pack(side=tk.LEFT)
-            self.delete_button.pack(side=tk.LEFT, padx=(10, 0))
-            self.back_button.pack(side=tk.LEFT, padx=(10, 0))
+            self.date_info.pack_forget()
+            self._show_view_actions()
             for key, entry in self.form_entries.items():
                 entry.grid_remove()
                 self.form_labels[key].grid()

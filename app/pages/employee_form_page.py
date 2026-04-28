@@ -5,8 +5,9 @@ from typing import Callable
 import customtkinter as ctk
 
 from app.ui import (
-    BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER,
+    BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ACCENT,
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
+    FONT_FAMILY, FONT_MEDIUM,
 )
 from app.validators import (
     AFFILIATION_UI_VALUES, DATE_FIELDS, FIELD_LABELS,
@@ -37,18 +38,18 @@ FIELDS: list[tuple[str, str]] = [
 def _styled_entry(parent, var, key, validate_cmd):
     """Return a styled Entry or Combobox for a form field."""
     if key == "affiliation":
-        w = ttk.Combobox(parent, textvariable=var, state="readonly", values=AFFILIATION_UI_VALUES, font=("Segoe UI", 10))
+        w = ttk.Combobox(parent, textvariable=var, state="readonly", values=AFFILIATION_UI_VALUES, font=(FONT_FAMILY, 10))
         w.current(0)
         return w
     entry = ctk.CTkEntry(
         parent,
         textvariable=var,
-        font=ctk.CTkFont(family="Segoe UI", size=13),
+        font=(FONT_FAMILY, 14),
         fg_color=ENTRY_BG,
         text_color=ENTRY_FG,
         border_color=ENTRY_BORDER,
         corner_radius=CORNER_RADIUS,
-        height=34,
+        height=40,
     )
     return entry
 
@@ -63,15 +64,24 @@ class EmployeeFormPage(tk.Frame):
 
         # Header
         hdr = tk.Frame(self, bg=BG_COLOR)
-        hdr.pack(fill=tk.X, padx=28, pady=(24, 0))
-        tk.Label(hdr, text="Добавление сотрудника", font=("Segoe UI", 20, "bold"), bg=BG_COLOR, fg=TEXT_COLOR).pack(side=tk.LEFT)
-        tk.Frame(self, bg=BORDER, height=1).pack(fill=tk.X, padx=28, pady=(12, 16))
+        hdr.pack(fill=tk.X, padx=36, pady=(32, 0))
+        tk.Label(hdr, text="Добавление сотрудника", font=(FONT_FAMILY, 24, "bold"), bg=BG_COLOR, fg=TEXT_COLOR).pack(side=tk.LEFT)
+        
+        # Divider
+        tk.Frame(self, bg=BORDER, height=1).pack(fill=tk.X, padx=36, pady=(16, 24))
 
-        # Card
-        card = tk.Frame(self, bg=BG_CARD)
-        card.pack(fill=tk.BOTH, expand=True, padx=28, pady=(0, 16))
+        # Card Container
+        card = ctk.CTkFrame(
+            self,
+            fg_color=BG_CARD,
+            border_color=BORDER,
+            border_width=1,
+            corner_radius=12
+        )
+        card.pack(fill=tk.BOTH, expand=True, padx=36, pady=(0, 24))
+        
         inner = tk.Frame(card, bg=BG_CARD)
-        inner.pack(fill=tk.BOTH, expand=True, padx=20, pady=16)
+        inner.pack(fill=tk.BOTH, expand=True, padx=24, pady=24)
 
         for i in range(4):
             inner.grid_columnconfigure(i * 2 + (1 if i % 2 else 1), weight=1)
@@ -86,8 +96,8 @@ class EmployeeFormPage(tk.Frame):
             label_col = block * 2
             input_col = label_col + 1
 
-            tk.Label(inner, text=label, font=("Segoe UI", 9), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(
-                row=row, column=label_col, sticky="w", padx=(0 if block == 0 else 20, 8), pady=(0, 2))
+            tk.Label(inner, text=label, font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(
+                row=row, column=label_col, sticky="w", padx=(0 if block == 0 else 32, 8), pady=(8, 2))
 
             var = tk.StringVar()
             self.form_vars[key] = var
@@ -106,12 +116,13 @@ class EmployeeFormPage(tk.Frame):
                     inner_entry.bind("<Control-v>", lambda ev, k=key: self._on_date_paste(ev, k))
                     inner_entry.bind("<<Paste>>", lambda ev, k=key: self._on_date_paste(ev, k))
 
-        tk.Label(self, text="Формат дат: ДД.ММ.ГГГГ", font=("Segoe UI", 8, "italic"), bg=BG_COLOR, fg=TEXT_MUTED).pack(anchor="w", padx=28)
+        tk.Label(self, text="Формат дат: ДД.ММ.ГГГГ", font=(FONT_FAMILY, 9, "italic"), bg=BG_COLOR, fg=TEXT_MUTED).pack(anchor="w", padx=36, pady=(0, 8))
 
         actions = tk.Frame(self, bg=BG_COLOR)
-        actions.pack(fill=tk.X, padx=28, pady=(8, 24))
-        FlatButton(actions, primary=True, text="Сохранить", command=self._submit, font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side=tk.LEFT)
-        FlatButton(actions, primary=False, text="Отмена", command=self._on_cancel, font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side=tk.LEFT, padx=(10, 0))
+        actions.pack(fill=tk.X, padx=36, pady=(0, 32))
+        
+        FlatButton(actions, primary=True, text="Сохранить", command=self._submit, height=44, width=160).pack(side=tk.RIGHT)
+        FlatButton(actions, primary=False, text="Отмена", command=self._on_cancel, height=44, width=120).pack(side=tk.RIGHT, padx=(0, 12))
 
     def reset_form(self) -> None:
         for key, var in self.form_vars.items():

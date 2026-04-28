@@ -47,125 +47,153 @@ WARNING         = "#D97706"
 SIDEBAR_BORDER  = "#E5E7EB"
 
 # Corner radius for customtkinter widgets
-CORNER_RADIUS   = 10
+CORNER_RADIUS       = 10
+MAIN_BUTTON_RADIUS  = 25
+
+# Typography
+FONT_FAMILY = "Google Sans"
+FONT_MEDIUM = "Google Sans Medium"
 
 
-class FlatButton(ctk.CTkButton):
-    """Rounded flat button using customtkinter."""
-
-    def __init__(self, master: Any, primary: bool = True, danger: bool = False, **kwargs: Any) -> None:
+class FlatButton(ctk.CTkFrame):
+    """Custom button using CTkFrame + CTkLabel for perfect font centering."""
+    def __init__(self, master: Any, text: str = "", command: Any = None, primary: bool = True, danger: bool = False, **kwargs: Any) -> None:
+        self.command = command
+        self.primary = primary
+        self.danger = danger
+        
+        # Determine colors
         if danger:
-            default_bg   = DANGER
-            hover_bg     = DANGER_HOVER
-            default_fg   = DANGER_FG
+            self.default_bg = DANGER
+            self.hover_bg   = DANGER_HOVER
+            self.text_col   = DANGER_FG
         elif primary:
-            default_bg   = ACCENT
-            hover_bg     = ACCENT_HOVER
-            default_fg   = ACCENT_FG
+            self.default_bg = ACCENT
+            self.hover_bg   = ACCENT_HOVER
+            self.text_col   = ACCENT_FG
         else:
-            default_bg   = "#FFFFFF"
-            hover_bg     = "#F3F4F6"
-            default_fg   = TEXT_COLOR
+            self.default_bg = "#FFFFFF"
+            self.hover_bg   = "#F3F4F6"
+            self.text_col   = TEXT_COLOR
 
-        kwargs.setdefault("fg_color", default_bg)
-        kwargs.setdefault("hover_color", hover_bg)
-        kwargs.setdefault("text_color", default_fg)
-        kwargs.setdefault("corner_radius", CORNER_RADIUS)
-        kwargs.setdefault("font", ctk.CTkFont(family="Segoe UI", size=13))
-        kwargs.setdefault("cursor", "hand2")
-        kwargs.setdefault("height", 36)
-
-        if not primary and not danger:
-            kwargs.setdefault("border_width", 1)
-            kwargs.setdefault("border_color", BORDER)
-
-        super().__init__(master, **kwargs)
-
-
-class SidebarButton(tk.Frame):
-    """Closure-style sidebar nav button — clean text with icon, rounded active pill."""
-
-    def __init__(
-        self,
-        master: Any,
-        text: str,
-        icon: str = "",
-        command: Any = None,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(master, bg=BG_SIDEBAR, cursor="hand2", **kwargs)
-        self._command = command
-        self._active = False
-
-        self._icon_label = tk.Label(
-            self,
-            text=icon,
-            font=("Segoe UI", 11),
-            bg=BG_SIDEBAR,
-            fg=TEXT_MUTED,
-            width=2,
-            anchor="center",
+        # Initialize Frame
+        super().__init__(
+            master,
+            fg_color=self.default_bg,
+            corner_radius=kwargs.pop("corner_radius", CORNER_RADIUS),
+            height=kwargs.pop("height", 48),
+            width=kwargs.pop("width", 140),
+            border_width=1 if not primary and not danger else 0,
+            border_color=BORDER if not primary and not danger else None,
+            cursor="hand2"
         )
-        self._icon_label.pack(side=tk.LEFT, padx=(12, 6), pady=8)
+        self.pack_propagate(False)
 
-        self._text_label = tk.Label(
+        # Label for text
+        self.label = ctk.CTkLabel(
             self,
             text=text,
-            font=("Segoe UI", 10),
-            bg=BG_SIDEBAR,
-            fg=TEXT_SIDEBAR,
-            anchor="w",
+            font=(FONT_MEDIUM, 15),
+            text_color=self.text_col,
+            fg_color="transparent"
         )
-        self._text_label.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=8, padx=(0, 12))
+        self.label.place(relx=0.5, rely=0.55, anchor="center")
 
-        for widget in (self, self._icon_label, self._text_label):
-            widget.bind("<Button-1>", self._on_click)
-            widget.bind("<Enter>", self._on_enter)
-            widget.bind("<Leave>", self._on_leave)
+        # Bindings
+        for w in [self, self.label]:
+            w.bind("<Button-1>", lambda e: self._on_click())
+            w.bind("<Enter>", lambda e: self._on_enter())
+            w.bind("<Leave>", lambda e: self._on_leave())
 
-    def _on_click(self, _event: tk.Event) -> None:
-        if self._command:
-            self._command()
+    def _on_click(self):
+        if self.command:
+            self.command()
 
-    def _on_enter(self, _event: tk.Event) -> None:
+    def _on_enter(self):
+        self.configure(fg_color=self.hover_bg)
+
+    def _on_leave(self):
+        self.configure(fg_color=self.default_bg)
+
+    def configure_text(self, text: str):
+        self.label.configure(text=text)
+
+
+class SidebarButton(ctk.CTkFrame):
+    """Custom sidebar button for perfect centering."""
+    def __init__(self, master: Any, text: str = "", icon: Any = None, command: Any = None, **kwargs: Any) -> None:
+        self.command = command
+        super().__init__(
+            master,
+            fg_color="transparent",
+            corner_radius=CORNER_RADIUS,
+            height=kwargs.pop("height", 44),
+            cursor="hand2"
+        )
+        self.pack_propagate(False)
+        self._active = False
+
+        # Icon Label
+        self.icon_label = ctk.CTkLabel(
+            self,
+            text=icon if isinstance(icon, str) else "",
+            image=icon if not isinstance(icon, str) else None,
+            width=24,
+            height=24,
+            fg_color="transparent"
+        )
+        self.icon_label.place(x=16, rely=0.5, anchor="w")
+
+        # Text Label
+        self.text_label = ctk.CTkLabel(
+            self,
+            text=text,
+            font=(FONT_MEDIUM, 15),
+            text_color=TEXT_SIDEBAR,
+            fg_color="transparent"
+        )
+        self.text_label.place(x=52, rely=0.57, anchor="w")
+
+        # Bindings
+        for w in [self, self.icon_label, self.text_label]:
+            w.bind("<Button-1>", lambda e: self._on_click())
+            w.bind("<Enter>", lambda e: self._on_enter())
+            w.bind("<Leave>", lambda e: self._on_leave())
+
+    def _on_click(self):
+        if self.command:
+            self.command()
+
+    def _on_enter(self):
         if not self._active:
-            for w in (self, self._icon_label, self._text_label):
-                w.configure(bg=BG_SIDEBAR_ITEM_HOVER)
+            self.configure(fg_color=BG_SIDEBAR_ITEM_HOVER)
 
-    def _on_leave(self, _event: tk.Event) -> None:
+    def _on_leave(self):
         if not self._active:
-            for w in (self, self._icon_label, self._text_label):
-                w.configure(bg=BG_SIDEBAR)
+            self.configure(fg_color="transparent")
 
     def set_active(self, active: bool) -> None:
         self._active = active
         if active:
-            bg = BG_SIDEBAR_ITEM_ACTIVE
-            fg_icon = ACCENT
-            fg_text = TEXT_SIDEBAR_ACTIVE
+            self.configure(fg_color=BG_SIDEBAR_ITEM_ACTIVE)
+            self.text_label.configure(text_color=TEXT_SIDEBAR_ACTIVE)
         else:
-            bg = BG_SIDEBAR
-            fg_icon = TEXT_MUTED
-            fg_text = TEXT_SIDEBAR
-
-        for w in (self, self._icon_label, self._text_label):
-            w.configure(bg=bg)
-        self._icon_label.configure(fg=fg_icon)
-        self._text_label.configure(fg=fg_text)
+            self.configure(fg_color="transparent")
+            self.text_label.configure(text_color=TEXT_SIDEBAR)
 
 
 def setup_styles(root: tk.Tk) -> None:
     style = ttk.Style(root)
     style.theme_use("clam")
 
-    # ── Treeview ──────────────────────────────────────────────────────────────
+    # ── Treeview (Tables) ──────────────────────────────────────────────────────
     style.configure(
         "Treeview",
         background=BG_CARD,
         foreground=TEXT_COLOR,
-        rowheight=38,
+        rowheight=42,
         fieldbackground=BG_CARD,
-        font=("Segoe UI", 10),
+        font=(FONT_FAMILY, 11),
         borderwidth=0,
         relief="flat",
     )
@@ -173,10 +201,10 @@ def setup_styles(root: tk.Tk) -> None:
         "Treeview.Heading",
         background="#F9FAFB",
         foreground=TEXT_MUTED,
-        font=("Segoe UI", 9, "bold"),
+        font=(FONT_MEDIUM, 10),
         borderwidth=0,
         relief="flat",
-        padding=(10, 8),
+        padding=(12, 10),
     )
     style.map(
         "Treeview",

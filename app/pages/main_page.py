@@ -1,12 +1,12 @@
 import tkinter as tk
 from tkinter import ttk
-from typing import Callable
+from typing import Callable, Any
 
 import customtkinter as ctk
 
 from app.ui import (
     BG_CARD, BG_COLOR, TEXT_COLOR, TEXT_MUTED, ACCENT, ACCENT_FG, ACCENT_LIGHT,
-    BORDER, CORNER_RADIUS, FlatButton,
+    BORDER, CORNER_RADIUS, MAIN_BUTTON_RADIUS, FONT_FAMILY, FONT_MEDIUM, FlatButton,
 )
 from app.database import (
     fetch_employees_for_table,
@@ -28,6 +28,7 @@ class MainPage(tk.Frame):
         on_add_student: Callable[[], None] | None = None,
         on_add_medicine: Callable[[], None] | None = None,
         on_add_appeal: Callable[[], None] | None = None,
+        icons: dict | None = None,
     ) -> None:
         super().__init__(master, bg=BG_COLOR)
         self._on_employees = on_employees
@@ -38,6 +39,7 @@ class MainPage(tk.Frame):
         self._on_add_student = on_add_student or on_students
         self._on_add_medicine = on_add_medicine or on_medicines
         self._on_add_appeal = on_add_appeal or on_appeals
+        self._icons = icons or {}
 
         # Header
         header = tk.Frame(self, bg=BG_COLOR)
@@ -46,7 +48,7 @@ class MainPage(tk.Frame):
         tk.Label(
             header,
             text="Главная",
-            font=("Segoe UI", 20, "bold"),
+            font=(FONT_FAMILY, 24, "bold"),
             bg=BG_COLOR,
             fg=TEXT_COLOR,
         ).pack(side=tk.LEFT)
@@ -54,7 +56,7 @@ class MainPage(tk.Frame):
         tk.Label(
             header,
             text="Обзор системы",
-            font=("Segoe UI", 11),
+            font=(FONT_FAMILY, 13),
             bg=BG_COLOR,
             fg=TEXT_MUTED,
         ).pack(side=tk.LEFT, padx=(16, 0), pady=(4, 0))
@@ -67,10 +69,10 @@ class MainPage(tk.Frame):
         self.cards_frame.pack(fill=tk.X, padx=36, pady=(0, 32))
 
         card_defs = [
-            ("👤", "Сотрудники", "0", on_employees),
-            ("🎓", "Студенты", "0", on_students),
-            ("💊", "Лекарства", "0", on_medicines),
-            ("📋", "Обращения", "0", on_appeals),
+            (self._icons.get("employees", "👤"), "Сотрудники", "0", on_employees),
+            (self._icons.get("students", "🎓"), "Студенты", "0", on_students),
+            (self._icons.get("medicine", "💊"), "Лекарства", "0", on_medicines),
+            (self._icons.get("appeals", "📋"), "Обращения", "0", on_appeals),
         ]
 
         for i, (icon, label, count, cmd) in enumerate(card_defs):
@@ -82,7 +84,7 @@ class MainPage(tk.Frame):
         tk.Label(
             self,
             text="Быстрый доступ",
-            font=("Segoe UI", 13, "bold"),
+            font=(FONT_FAMILY, 16, "bold"),
             bg=BG_COLOR,
             fg=TEXT_COLOR,
         ).pack(anchor="w", padx=36, pady=(0, 14))
@@ -91,10 +93,10 @@ class MainPage(tk.Frame):
         actions_frame.pack(fill=tk.X, padx=36)
 
         quick_buttons = [
-            ("+ Добавить сотрудника", self._on_add_employee),
-            ("+ Добавить студента", self._on_add_student),
-            ("+ Добавить лекарство", self._on_add_medicine),
-            ("+ Новое обращение", self._on_add_appeal),
+            ("Добавить сотрудника", self._on_add_employee),
+            ("Добавить студента",   self._on_add_student),
+            ("Добавить лекарство",  self._on_add_medicine),
+            ("Новое обращение",    self._on_add_appeal),
         ]
 
         for i, (text, cmd) in enumerate(quick_buttons):
@@ -103,8 +105,9 @@ class MainPage(tk.Frame):
                 primary=True,
                 text=text,
                 command=cmd,
-                font=ctk.CTkFont(family="Segoe UI", size=12),
-                height=40,
+                corner_radius=CORNER_RADIUS,
+                font=(FONT_MEDIUM, 16),
+                height=60,
             )
             btn.grid(row=0, column=i, padx=(0, 12) if i < 3 else 0, sticky="ew")
             actions_frame.grid_columnconfigure(i, weight=1)
@@ -112,42 +115,66 @@ class MainPage(tk.Frame):
     def _build_stat_card(
         self,
         parent: tk.Frame,
-        icon: str,
+        icon: Any,
         label: str,
         count: str,
         command: Callable,
-    ) -> tk.Frame:
-        # Outer card with subtle border
-        card = tk.Frame(parent, bg=BORDER, cursor="hand2", bd=0)
+    ) -> ctk.CTkFrame:
+        # Card using CTkFrame for rounded corners
+        card = ctk.CTkFrame(
+            parent,
+            fg_color=BG_CARD,
+            border_color=BORDER,
+            border_width=1,
+            corner_radius=12,
+            cursor="hand2"
+        )
 
-        # Inner white content (1px border effect via padding)
-        inner_wrap = tk.Frame(card, bg=BG_CARD)
-        inner_wrap.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
-
-        inner = tk.Frame(inner_wrap, bg=BG_CARD)
+        inner = tk.Frame(card, bg=BG_CARD)
         inner.pack(fill=tk.BOTH, expand=True, padx=20, pady=18)
 
         # Icon + count row
         top_row = tk.Frame(inner, bg=BG_CARD)
         top_row.pack(fill=tk.X)
 
-        icon_lbl = tk.Label(top_row, text=icon, font=("Segoe UI", 20), bg=BG_CARD, fg=TEXT_COLOR)
+        icon_lbl = ctk.CTkLabel(
+            top_row,
+            text=icon if isinstance(icon, str) else "",
+            image=icon if not isinstance(icon, str) else None,
+            font=(FONT_FAMILY, 20),
+            text_color=TEXT_COLOR,
+            anchor="center",
+            width=32,
+            height=32,
+        )
         icon_lbl.pack(side=tk.LEFT)
 
-        count_lbl = tk.Label(top_row, text=count, font=("Segoe UI", 26, "bold"), bg=BG_CARD, fg=TEXT_COLOR)
+        count_lbl = ctk.CTkLabel(
+            top_row,
+            text=count,
+            font=(FONT_FAMILY, 28, "bold"),
+            fg_color="transparent",
+            text_color=TEXT_COLOR
+        )
         count_lbl.pack(side=tk.RIGHT)
 
         # Label
-        label_lbl = tk.Label(inner, text=label, font=("Segoe UI", 10), bg=BG_CARD, fg=TEXT_MUTED)
+        label_lbl = ctk.CTkLabel(
+            inner,
+            text=label,
+            font=(FONT_FAMILY, 16),
+            fg_color="transparent",
+            text_color=TEXT_MUTED
+        )
         label_lbl.pack(anchor="w", pady=(8, 4))
 
         # Click link
-        open_btn = tk.Label(
+        open_btn = ctk.CTkLabel(
             inner,
             text="Открыть →",
-            font=("Segoe UI", 9),
-            bg=BG_CARD,
-            fg=ACCENT,
+            font=(FONT_FAMILY, 14),
+            fg_color="transparent",
+            text_color=ACCENT,
             cursor="hand2",
         )
         open_btn.pack(anchor="w")
@@ -156,13 +183,9 @@ class MainPage(tk.Frame):
         hover_bg = "#F9FAFB"
 
         def _set_bg(target_bg):
-            inner_wrap.configure(bg=target_bg)
+            card.configure(fg_color=target_bg)
             inner.configure(bg=target_bg)
-            for w in (icon_lbl, count_lbl, label_lbl, open_btn, top_row):
-                try:
-                    w.configure(bg=target_bg)
-                except Exception:
-                    pass
+            top_row.configure(bg=target_bg)
 
         def on_enter(e):
             _set_bg(hover_bg)
@@ -170,7 +193,7 @@ class MainPage(tk.Frame):
         def on_leave(e):
             _set_bg(BG_CARD)
 
-        for w in [card, inner_wrap, inner, top_row, icon_lbl, count_lbl, label_lbl, open_btn]:
+        for w in [card, inner, top_row, icon_lbl, count_lbl, label_lbl, open_btn]:
             w.bind("<Button-1>", lambda e, cmd=command: cmd())
             w.bind("<Enter>", on_enter)
             w.bind("<Leave>", on_leave)
