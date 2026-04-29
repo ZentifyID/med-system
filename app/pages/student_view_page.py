@@ -7,9 +7,9 @@ import customtkinter as ctk
 from app.ui import (
     BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, 
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
-    FONT_FAMILY, FONT_MEDIUM
+    FONT_FAMILY, FONT_MEDIUM, DateMaskHandler
 )
-from app.validators import DATE_FIELDS, STUDENT_FIELD_LABELS as FIELD_LABELS, allow_typed_value, validate_student_payload
+from app.validators import DATE_FIELDS, STUDENT_FIELD_LABELS as FIELD_LABELS, validate_student_payload
 
 DATE_PLACEHOLDER = "__.__.____"
 
@@ -109,12 +109,7 @@ class StudentViewPage(tk.Frame):
                     height=40,
                 )
                 if key in DATE_FIELDS:
-                    inner_entry = field._entry if hasattr(field, '_entry') else field
-                    inner_entry.bind("<FocusIn>", lambda _e, k=key: self._on_date_focus_in(k))
-                    inner_entry.bind("<FocusOut>", lambda _e, k=key: self._on_date_focus_out(k))
-                    inner_entry.bind("<KeyPress>", lambda ev, k=key: self._on_date_keypress(ev, k))
-                    inner_entry.bind("<Control-v>", lambda ev, k=key: self._on_date_paste(ev, k))
-                    inner_entry.bind("<<Paste>>", lambda ev, k=key: self._on_date_paste(ev, k))
+                    DateMaskHandler.bind_to_entry(field, var)
             self.form_entries[key] = field
 
         self.date_info = tk.Label(self, text="Формат дат: ДД.ММ.ГГГГ", font=(FONT_FAMILY, 9, "italic"), bg=BG_COLOR, fg=TEXT_MUTED)
@@ -148,13 +143,19 @@ class StudentViewPage(tk.Frame):
                 self.form_vars["group_id"].set(self.group_mapping_reverse.get(gid, ""))
 
     def set_student_data(self, data: dict) -> None:
-        self.student_id = int(data["id"])
+        try:
+            self.student_id = int(data.get("id", 0))
+        except (ValueError, TypeError):
+            self.student_id = None
         self.original_data = data.copy()
-        fio = f"{data.get('last_name', '')} {data.get('first_name', '')}"
-        if data.get("middle_name"): fio += f" {data['middle_name']}"
-        self.title_label.config(text=f"Студент: {fio.strip()}")
+        
+        fio_parts = [data.get('last_name'), data.get('first_name'), data.get('middle_name')]
+        fio = " ".join(part for part in fio_parts if part).strip()
+        self.title_label.config(text=f"Студент: {fio}")
+        
         self._update_form_vars(data)
-        if self.is_edit_mode: self._toggle_edit_mode()
+        if self.is_edit_mode:
+            self._toggle_edit_mode()
 
     def _update_form_vars(self, data: dict) -> None:
         for key, var in self.form_vars.items():
@@ -187,7 +188,8 @@ class StudentViewPage(tk.Frame):
                 self.form_labels[key].grid()
 
     def _cancel_edit(self) -> None:
-        if self.original_data: self._update_form_vars(self.original_data)
+        if self.original_data:
+            self._update_form_vars(self.original_data)
         self._toggle_edit_mode()
 
     def _delete_student(self) -> None:
@@ -195,90 +197,18 @@ class StudentViewPage(tk.Frame):
             self._on_delete(self.student_id)
 
     def _submit(self) -> None:
-        if not self.student_id: return
+        if not self.student_id:
+            return
         data = {k: v.get().strip() for k, v in self.form_vars.items()}
         for f in DATE_FIELDS:
-            if data.get(f) == DATE_PLACEHOLDER: data[f] = ""
-        group_name = data["group_id"]
+            if data.get(f) == DATE_PLACEHOLDER:
+                data[f] = ""
+        group_name = data.get("group_id", "")
         data["group_id"] = self.group_mapping.get(group_name, "")
         errors = validate_student_payload(data)
-        if errors: messagebox.showwarning("Ошибка ввода", "\n".join(errors[:5])); return
+        if errors:
+            messagebox.showwarning("Ошибка ввода", "\n".join(errors[:5]))
+            return
         self._on_save(self.student_id, data)
 
-    def _on_date_focus_in(self, k):
-        if self.form_vars[k].get() == DATE_PLACEHOLDER: self.form_vars[k].set("")
 
-    def _on_date_focus_out(self, k):
-        if not self.form_vars[k].get().strip(): self.form_vars[k].set(DATE_PLACEHOLDER)
-
-    def _fmt(self, d):
-        if len(d) <= 2: return d
-        if len(d) <= 4: return f"{d[:2]}.{d[2:]}"
-        return f"{d[:2]}.{d[2:4]}.{d[4:]}"
-
-    def _d2i(self, s, i): return sum(1 for c in s[:i] if c.isdigit())
-    def _i2d(self, i):
-        if i <= 2: return i
-        if i <= 4: return i + 1
-        return i + 2
-    def _digits(self, v): return "".join(c for c in v if c.isdigit())[:8]
-    def _replace(self, d, s, e, r=""): return (d[:s] + r + d[e:])[:8]
-
-    def _get_inner_entry(self, k):
-        widget = self.form_entries[k]
-        if isinstance(widget, ctk.CTkEntry) and hasattr(widget, '_entry'):
-            return widget._entry
-        return widget
-
-    def _apply(self, k, digits, caret):
-        digits = digits[:8]
-        self.form_vars[k].set(self._fmt(digits))
-        e = self._get_inner_entry(k)
-        e.icursor(self._i2d(max(0, min(caret, len(digits)))))
-        return "break"
-
-    def _on_date_keypress(self, ev, k):
-        e = self._get_inner_entry(k)
-        cur = e.get()
-        if cur == DATE_PLACEHOLDER: cur = ""
-        digits = self._digits(cur)
-        has_sel = e.selection_present()
-        if has_sel:
-            s = self._d2i(cur, e.index("sel.first"))
-            en = self._d2i(cur, e.index("sel.last"))
-        else:
-            s = en = self._d2i(cur, e.index(tk.INSERT))
-        ctrl = bool(ev.state & 0x4)
-        if ctrl and ev.keysym.lower() in {"a", "c", "x"}: return None
-        if ctrl and ev.keysym.lower() == "v": return self._on_date_paste(ev, k)
-        if ev.keysym in {"Left", "Right", "Home", "End", "Tab", "ISO_Left_Tab", "Shift_L", "Shift_R"}: return None
-        if ev.keysym == "BackSpace":
-            if has_sel: return self._apply(k, self._replace(digits, s, en), s)
-            if s == 0: return "break"
-            return self._apply(k, self._replace(digits, s-1, s), s-1)
-        if ev.keysym == "Delete":
-            if has_sel: return self._apply(k, self._replace(digits, s, en), s)
-            if s >= len(digits): return "break"
-            return self._apply(k, self._replace(digits, s, s+1), s)
-        if ev.char.isdigit():
-            if len(digits) >= 8 and not has_sel: return "break"
-            return self._apply(k, self._replace(digits, s, en, ev.char), s+1)
-        return "break"
-
-    def _on_date_paste(self, _ev, k):
-        e = self._get_inner_entry(k)
-        cur = e.get()
-        if cur == DATE_PLACEHOLDER: cur = ""
-        digits = self._digits(cur)
-        try: cb = self.clipboard_get()
-        except tk.TclError: return "break"
-        pd = "".join(c for c in cb if c.isdigit())
-        if not pd: return "break"
-        has_sel = e.selection_present()
-        if has_sel:
-            s = self._d2i(cur, e.index("sel.first"))
-            en = self._d2i(cur, e.index("sel.last"))
-        else:
-            s = en = self._d2i(cur, e.index(tk.INSERT))
-        nd = self._replace(digits, s, en, pd)
-        return self._apply(k, nd, min(s + len(pd), len(nd)))

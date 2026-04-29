@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from typing import Any
+from collections import deque
 
 import customtkinter as ctk
 
@@ -246,3 +247,248 @@ def setup_styles(root: tk.Tk) -> None:
         fieldbackground=[("readonly", ENTRY_BG)],
         bordercolor=[("focus", ACCENT)],
     )
+
+class DateMaskHandler:
+    """Инкапсулирует логику форматирования и обработки ввода дат (маска ДД.ММ.ГГГГ)."""
+    
+    @staticmethod
+    def bind_to_entry(entry_widget: tk.Widget | ctk.CTkEntry, string_var: tk.StringVar) -> None:
+        inner_entry = entry_widget._entry if hasattr(entry_widget, '_entry') else entry_widget
+        handler = DateMaskHandler(inner_entry, string_var)
+        
+        inner_entry.bind("<FocusIn>", handler.on_focus_in)
+        inner_entry.bind("<FocusOut>", handler.on_focus_out)
+        inner_entry.bind("<KeyPress>", handler.on_keypress)
+        inner_entry.bind("<Control-v>", handler.on_paste)
+        inner_entry.bind("<<Paste>>", handler.on_paste)
+
+    def __init__(self, entry: tk.Widget, var: tk.StringVar):
+        self.entry = entry
+        self.var = var
+
+    def on_focus_in(self, event: tk.Event) -> None:
+        if self.var.get() == "__.__.____":
+            self.var.set("")
+
+    def on_focus_out(self, event: tk.Event) -> None:
+        if not self.var.get().strip():
+            self.var.set("__.__.____")
+
+    def _fmt(self, digits: str) -> str:
+        if len(digits) <= 2:
+            return digits
+        if len(digits) <= 4:
+            return f"{digits[:2]}.{digits[2:]}"
+        return f"{digits[:2]}.{digits[2:4]}.{digits[4:]}"
+
+    def _d2i(self, display: str, idx: int) -> int:
+        return sum(1 for c in display[:idx] if c.isdigit())
+
+    def _i2d(self, i: int) -> int:
+        if i <= 2:
+            return i
+        if i <= 4:
+            return i + 1
+        return i + 2
+
+    def _digits(self, v: str) -> str:
+        return "".join(c for c in v if c.isdigit())[:8]
+
+    def _replace(self, digits: str, s: int, e: int, r: str = "") -> str:
+        return (digits[:s] + r + digits[e:])[:8]
+
+    def _apply(self, digits: str, caret: int) -> str:
+        digits = digits[:8]
+        self.var.set(self._fmt(digits))
+        self.entry.icursor(self._i2d(max(0, min(caret, len(digits)))))
+        return "break"
+
+    def on_keypress(self, ev: tk.Event) -> str | None:
+        cur = self.entry.get()
+        if cur == "__.__.____":
+            cur = ""
+        digits = self._digits(cur)
+        has_sel = self.entry.selection_present()
+        
+        if has_sel:
+            s = self._d2i(cur, self.entry.index("sel.first"))
+            en = self._d2i(cur, self.entry.index("sel.last"))
+        else:
+            s = en = self._d2i(cur, self.entry.index(tk.INSERT))
+            
+        ctrl = bool(ev.state & 0x4)
+        if ctrl and ev.keysym.lower() in {"a", "c", "x"}:
+            return None
+        if ctrl and ev.keysym.lower() == "v":
+            return self.on_paste(ev)
+        if ev.keysym in {"Left", "Right", "Home", "End", "Tab", "ISO_Left_Tab", "Shift_L", "Shift_R"}:
+            return None
+            
+        if ev.keysym == "BackSpace":
+            if has_sel:
+                return self._apply(self._replace(digits, s, en), s)
+            if s == 0:
+                return "break"
+            return self._apply(self._replace(digits, s - 1, s), s - 1)
+            
+        if ev.keysym == "Delete":
+            if has_sel:
+                return self._apply(self._replace(digits, s, en), s)
+            if s >= len(digits):
+                return "break"
+            return self._apply(self._replace(digits, s, s + 1), s)
+            
+        if ev.char.isdigit():
+            if len(digits) >= 8 and not has_sel:
+                return "break"
+            return self._apply(self._replace(digits, s, en, ev.char), s + 1)
+            
+        return "break"
+
+    def on_paste(self, event: tk.Event) -> str:
+        cur = self.entry.get()
+        if cur == "__.__.____":
+            cur = ""
+        digits = self._digits(cur)
+        
+        try:
+            cb = self.entry.clipboard_get()
+        except tk.TclError:
+            return "break"
+            
+        pd = "".join(c for c in cb if c.isdigit())
+        if not pd:
+            return "break"
+            
+        has_sel = self.entry.selection_present()
+        if has_sel:
+            s = self._d2i(cur, self.entry.index("sel.first"))
+            en = self._d2i(cur, self.entry.index("sel.last"))
+        else:
+            s = en = self._d2i(cur, self.entry.index(tk.INSERT))
+            
+        nd = self._replace(digits, s, en, pd)
+        return self._apply(nd, min(s + len(pd), len(nd)))
+
+def setup_global_undo(root: tk.Tk) -> None:
+    def get_stacks(w: tk.Widget) -> tuple[deque, deque]:
+        if not hasattr(w, "_undo_stack"):
+            w._undo_stack = deque(maxlen=50)
+            w._redo_stack = deque(maxlen=50)
+            w._last_val = w.get() if hasattr(w, "get") else ""
+        return w._undo_stack, w._redo_stack
+
+    def track_changes(event: tk.Event) -> None:
+        w = getattr(event, "widget", None)
+        if not isinstance(w, tk.Entry):
+            return
+        keysym = getattr(event, "keysym", "")
+        if keysym in ('Control_L', 'Control_R', 'Alt_L', 'Alt_R', 'Shift_L', 'Shift_R'):
+            return
+        state = getattr(event, "state", 0)
+        if state & 0x0004 and keysym.lower() in ('z', 'y', 'я', 'н'):
+            return
+            
+        undo_stack, redo_stack = get_stacks(w)
+        try:
+            cur = w.get()
+        except Exception:
+            return
+        if cur != w._last_val:
+            undo_stack.append(w._last_val)
+            redo_stack.clear()
+            w._last_val = cur
+
+    def perform_undo(event: tk.Event) -> str | None:
+        w = getattr(event, "widget", None)
+        if not isinstance(w, tk.Entry):
+            return None
+        undo_stack, redo_stack = get_stacks(w)
+        if undo_stack:
+            redo_stack.append(w._last_val)
+            prev = undo_stack.pop()
+            w.delete(0, tk.END)
+            w.insert(0, prev)
+            w._last_val = prev
+        return "break"
+
+    def perform_redo(event: tk.Event) -> str | None:
+        w = getattr(event, "widget", None)
+        if not isinstance(w, tk.Entry):
+            return None
+        undo_stack, redo_stack = get_stacks(w)
+        if redo_stack:
+            undo_stack.append(w._last_val)
+            nxt = redo_stack.pop()
+            w.delete(0, tk.END)
+            w.insert(0, nxt)
+            w._last_val = nxt
+        return "break"
+
+    def global_hotkey_handler(event: tk.Event) -> str | None:
+        if not isinstance(getattr(event, "widget", None), tk.Entry):
+            return None
+        keycode = getattr(event, "keycode", 0)
+        keysym = getattr(event, "keysym", "").lower()
+        if keycode == 90 or keysym in ("z", "я"):
+            return perform_undo(event)
+        if keycode == 89 or keysym in ("y", "н"):
+            return perform_redo(event)
+        return None
+
+    root.bind_all("<KeyRelease>", track_changes, add="+")
+    root.bind_all("<Control-KeyPress>", global_hotkey_handler, add="+")
+
+def show_toast(master: tk.Widget, message: str, type: str = "success") -> None:
+    if type == "success": bg_color = "#10B981"
+    elif type == "error": bg_color = "#EF4444"
+    elif type == "info": bg_color = "#3B82F6"
+    else: bg_color = "#374151"
+    
+    toplevel = master.winfo_toplevel()
+    toast = ctk.CTkFrame(toplevel, fg_color=bg_color, corner_radius=8)
+    lbl = ctk.CTkLabel(toast, text=message, font=(FONT_FAMILY, 13, "bold"), text_color="#FFFFFF")
+    lbl.pack(padx=24, pady=12)
+    
+    # Place relative to bottom right
+    toast.place(relx=1.0, rely=1.0, x=-36, y=-36, anchor="se")
+    
+    def fade_out(alpha=1.0):
+        if not toast.winfo_exists(): return
+        if alpha <= 0:
+            toast.destroy()
+            return
+        # Tkinter frame transparency isn't perfectly supported via place, 
+        # so we just destroy it after a delay.
+        pass
+
+    def destroy_toast():
+        if toast.winfo_exists():
+            toast.destroy()
+            
+    toplevel.after(3000, destroy_toast)
+
+
+def sort_treeview_column(tv: ttk.Treeview, col: str, reverse: bool) -> None:
+    l = [(tv.set(k, col), k) for k in tv.get_children('')]
+    
+    from datetime import datetime
+    def parse_val(val):
+        if not val: return 0
+        if len(val) == 10 and val.count(".") == 2:
+            try: return datetime.strptime(val, "%d.%m.%Y").timestamp()
+            except ValueError: pass
+        try: return float(val)
+        except ValueError: return val.lower()
+
+    l.sort(key=lambda t: parse_val(t[0]), reverse=reverse)
+
+    for index, (val, k) in enumerate(l):
+        tv.move(k, '', index)
+        current_tags = list(tv.item(k, "tags"))
+        base_tags = [t for t in current_tags if t not in ("odd", "even")]
+        if not base_tags:
+            base_tags.append("odd" if index % 2 == 0 else "even")
+        tv.item(k, tags=tuple(base_tags))
+
+    tv.heading(col, command=lambda _col=col: sort_treeview_column(tv, _col, not reverse))

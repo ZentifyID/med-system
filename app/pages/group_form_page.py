@@ -43,7 +43,9 @@ class GroupFormPage(tk.Frame):
 
     def _submit(self) -> None:
         name = self.name_var.get().strip()
-        if not name: messagebox.showwarning("Ошибка", "Имя группы не может быть пустым."); return
+        if not name:
+            messagebox.showwarning("Ошибка", "Имя группы не может быть пустым.")
+            return
         self._on_save(name)
 
 
@@ -132,7 +134,9 @@ class GroupViewPage(tk.Frame):
 
     def _submit(self) -> None:
         name = self.name_var.get().strip()
-        if not name: messagebox.showwarning("Ошибка", "Имя группы не может быть пустым."); return
+        if not name:
+            messagebox.showwarning("Ошибка", "Имя группы не может быть пустым.")
+            return
         if self.group_id: self._on_save(self.group_id, name)
 
     def _delete(self) -> None:

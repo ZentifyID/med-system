@@ -1,8 +1,15 @@
 import sqlite3
+import sys
 from pathlib import Path
 
+if getattr(sys, 'frozen', False):
+    # Если запущен скомпилированный .exe, база будет лежать рядом с .exe
+    BASE_DIR = Path(sys.executable).parent
+else:
+    # Если запущен из исходников, база лежит в корне проекта
+    BASE_DIR = Path(__file__).resolve().parent.parent
 
-DB_PATH = Path(__file__).resolve().parent.parent / "med_system.db"
+DB_PATH = BASE_DIR / "med_system.db"
 
 
 def init_db() -> None:

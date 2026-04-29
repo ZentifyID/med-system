@@ -15,6 +15,7 @@ from app.database import (
     fetch_appeals_for_table, fetch_appeal_by_id, insert_appeal, update_appeal, delete_appeal,
     fetch_all_person_names,
 )
+from app.validators import get_person_expiration_status, get_medicine_expiration_status
 from app.pages.employee_form_page import EmployeeFormPage
 from app.pages.employee_view_page import EmployeeViewPage
 from app.pages.employees_page import EmployeesPage
@@ -35,7 +36,7 @@ from app.pages.main_page import MainPage
 from app.ui import (
     BG_SIDEBAR, BG_COLOR, TEXT_SIDEBAR, ACCENT, TEXT_COLOR, TEXT_MUTED,
     BORDER, SIDEBAR_BORDER,
-    setup_styles, SidebarButton,
+    setup_styles, SidebarButton, setup_global_undo, show_toast,
 )
 
 
@@ -47,7 +48,13 @@ class App:
         self.root.minsize(1024, 640)
         self.root.configure(bg=BG_COLOR)
         setup_styles(root)
+        setup_global_undo(root)
 
+        self.root.bind("<Escape>", self.handle_escape)
+        self.root.bind("<Control-KeyPress>", self.handle_global_hotkeys)
+        self.root.bind("<Return>", self.handle_enter)
+
+        self.current_page = None
         self.search_query = ""
         self.filter_status = "Все сотрудники"
         self.search_query_students = ""
@@ -84,8 +91,14 @@ class App:
         self.show_main_page()
 
     def _load_icons(self) -> dict:
+        import sys
+        if getattr(sys, 'frozen', False):
+            base_dir = sys._MEIPASS
+        else:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            
         def get_icon(name, emoji):
-            path = os.path.join("assets", "icons", f"{name}.png")
+            path = os.path.join(base_dir, "assets", "icons", f"{name}.png")
             if os.path.exists(path):
                 try:
                     return ctk.CTkImage(light_image=Image.open(path), size=(20, 20))
@@ -162,22 +175,22 @@ class App:
             on_add_appeal=self.show_add_appeal_page,
             icons=self.icons,
         )
-        self.employees_page = EmployeesPage(c, on_add=self.show_add_employee_page, on_back=self.show_main_page, on_select=self.show_employee_view_page, on_filter_changed=self.on_filter_changed)
+        self.employees_page = EmployeesPage(c, on_add=self.show_add_employee_page, on_back=self.show_main_page, on_select=self.show_employee_view_page, on_delete=self.delete_employee_action, on_filter_changed=self.on_filter_changed)
         self.employee_form_page = EmployeeFormPage(c, on_save=self.save_employee, on_cancel=self.show_employees_page)
         self.employee_view_page = EmployeeViewPage(c, on_save=self.edit_employee, on_delete=self.delete_employee_action, on_cancel=self.show_employees_page)
 
-        self.students_page = StudentsPage(c, on_add=self.show_add_student_page, on_groups=self.show_groups_page, on_back=self.show_main_page, on_select=self.show_student_view_page, on_filter_changed=self.on_filter_changed_students)
+        self.students_page = StudentsPage(c, on_add=self.show_add_student_page, on_groups=self.show_groups_page, on_back=self.show_main_page, on_select=self.show_student_view_page, on_delete=self.delete_student_action, on_filter_changed=self.on_filter_changed_students)
         self.student_form_page = StudentFormPage(c, on_save=self.save_student, on_cancel=self.show_students_page)
         self.student_view_page = StudentViewPage(c, on_save=self.edit_student, on_delete=self.delete_student_action, on_cancel=self.show_students_page)
-        self.groups_page = GroupsPage(c, on_add=self.show_add_group_page, on_back=self.show_students_page, on_select=self.show_group_view_page)
+        self.groups_page = GroupsPage(c, on_add=self.show_add_group_page, on_back=self.show_students_page, on_select=self.show_group_view_page, on_delete=self.delete_group_action)
         self.group_form_page = GroupFormPage(c, on_save=self.save_group, on_cancel=self.show_groups_page)
         self.group_view_page = GroupViewPage(c, on_save=self.edit_group, on_delete=self.delete_group_action, on_cancel=self.show_groups_page)
 
-        self.medicines_page = MedicinesPage(c, on_add=self.show_add_medicine_page, on_back=self.show_main_page, on_select=self.show_medicine_view_page, on_order=self.order_medicines_action, on_filter_changed=self.on_filter_changed_medicines)
+        self.medicines_page = MedicinesPage(c, on_add=self.show_add_medicine_page, on_back=self.show_main_page, on_select=self.show_medicine_view_page, on_delete=self.delete_medicine_action, on_order=self.order_medicines_action, on_filter_changed=self.on_filter_changed_medicines)
         self.medicine_form_page = MedicineFormPage(c, on_save=self.save_medicine, on_cancel=self.show_medicines_page)
         self.medicine_view_page = MedicineViewPage(c, on_save=self.edit_medicine, on_delete=self.delete_medicine_action, on_cancel=self.show_medicines_page)
 
-        self.appeals_page = AppealsPage(c, on_add=self.show_add_appeal_page, on_back=self.show_main_page, on_select=self.show_appeal_view_page, on_filter_changed=self.on_filter_changed_appeals)
+        self.appeals_page = AppealsPage(c, on_add=self.show_add_appeal_page, on_back=self.show_main_page, on_select=self.show_appeal_view_page, on_delete=self.delete_appeal_action, on_filter_changed=self.on_filter_changed_appeals)
         self.appeal_form_page = AppealFormPage(c, on_save=self.save_appeal, on_cancel=self.show_appeals_page)
         self.appeal_view_page = AppealViewPage(c, on_save=self.edit_appeal, on_delete=self.delete_appeal_action, on_cancel=self.show_appeals_page)
 
@@ -193,6 +206,38 @@ class App:
         for p in self._all_pages:
             p.pack_forget()
         page.pack(fill=tk.BOTH, expand=True)
+        self.current_page = page
+
+    def handle_escape(self, event) -> None:
+        if self.current_page and hasattr(self.current_page, "back_button") and self.current_page.back_button.winfo_ismapped():
+            self.current_page.back_button.invoke()
+        elif self.current_page and hasattr(self.current_page, "_on_cancel"):
+            self.current_page._on_cancel()
+
+    def handle_global_hotkeys(self, event) -> None:
+        if getattr(event, "keycode", 0) == 70 or getattr(event, "keysym", "").lower() in ("f", "а"):
+            self.handle_search_focus(event)
+
+    def handle_search_focus(self, event) -> None:
+        if self.current_page and hasattr(self.current_page, "search_var"):
+            # Find the entry. Since it's inside _make_search_bar, we can just grab focus directly if we stored it,
+            # but we didn't store it. Let's just find the first CTkEntry inside the page.
+            for widget in self.current_page.winfo_children():
+                for child in widget.winfo_children():
+                    if isinstance(child, ctk.CTkEntry):
+                        child.focus_set()
+                        return
+
+    def handle_enter(self, event) -> None:
+        # If focusing on an entry, maybe we want to select first
+        if self.current_page and hasattr(self.current_page, "_open_selected"):
+            # if search query is active and there's 1 item? Or just always open first item.
+            # We'll just invoke search if needed or open first.
+            if hasattr(self.current_page, "table"):
+                children = self.current_page.table.get_children()
+                if len(children) == 1:
+                    self.current_page.table.selection_set(children[0])
+                    self.current_page._open_selected()
 
     # ── Navigation ────────────────────────────────────────────────────────────
     def show_main_page(self) -> None:
@@ -233,19 +278,7 @@ class App:
             if self.search_query and self.search_query not in fio.lower():
                 continue
             if self.filter_status != "Все сотрудники":
-                exp_dates = []
-                for d_str in (san_date, med_date, flu_date):
-                    try:
-                        d = datetime.strptime(d_str, "%d.%m.%Y")
-                        try:
-                            exp = d.replace(year=d.year + 1)
-                        except ValueError:
-                            exp = d.replace(year=d.year + 1, month=2, day=28)
-                        exp_dates.append(exp)
-                    except ValueError:
-                        pass
-                is_expired = any(e < now for e in exp_dates)
-                is_expiring = any(now <= e <= fourteen_days for e in exp_dates)
+                is_expired, is_expiring = get_person_expiration_status([san_date, med_date, flu_date])
                 if self.filter_status == "Просроченные" and not is_expired:
                     continue
                 if self.filter_status == "Истекают (2 недели)" and not is_expiring:
@@ -264,14 +297,16 @@ class App:
         try:
             update_employee(employee_id, data)
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_employee_view_page(employee_id)
 
     def delete_employee_action(self, employee_id: int) -> None:
         try:
             delete_employee(employee_id)
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_employees_page()
 
     # ── Students ──────────────────────────────────────────────────────────────
@@ -284,7 +319,8 @@ class App:
         self._set_active_nav("Студенты")
         groups = fetch_groups()
         if not groups:
-            messagebox.showwarning("Внимание", "Сначала добавьте хотя бы одну учебную группу."); return
+            show_toast(self.root, "Сначала добавьте хотя бы одну учебную группу.", "info")
+            return
         self.student_form_page.set_groups(groups)
         self.student_form_page.reset_form()
         self._show_page(self.student_form_page)
@@ -313,19 +349,7 @@ class App:
             if self.search_query_students and self.search_query_students not in fio.lower():
                 continue
             if self.filter_status_students != "Все студенты":
-                exp_dates = []
-                for d_str in (san_date, med_date, flu_date):
-                    try:
-                        d = datetime.strptime(d_str, "%d.%m.%Y")
-                        try:
-                            exp = d.replace(year=d.year + 1)
-                        except ValueError:
-                            exp = d.replace(year=d.year + 1, month=2, day=28)
-                        exp_dates.append(exp)
-                    except ValueError:
-                        pass
-                is_expired = any(e < now for e in exp_dates)
-                is_expiring = any(now <= e <= fourteen_days for e in exp_dates)
+                is_expired, is_expiring = get_person_expiration_status([san_date, med_date, flu_date])
                 if self.filter_status_students == "Просроченные" and not is_expired:
                     continue
                 if self.filter_status_students == "Истекают (2 недели)" and not is_expiring:
@@ -337,21 +361,24 @@ class App:
         try:
             insert_student(data)
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_students_page()
 
     def edit_student(self, student_id: int, data: dict) -> None:
         try:
             update_student(student_id, data)
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_student_view_page(student_id)
 
     def delete_student_action(self, student_id: int) -> None:
         try:
             delete_student(student_id)
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_students_page()
 
     # ── Groups ────────────────────────────────────────────────────────────────
@@ -376,27 +403,33 @@ class App:
         try:
             insert_group(name)
         except sqlite3.IntegrityError:
-            messagebox.showerror("Ошибка", "Группа с таким названием уже существует."); return
+            messagebox.showerror("Ошибка", "Группа с таким названием уже существует.")
+            return
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_groups_page()
 
     def edit_group(self, group_id: int, name: str) -> None:
         try:
             update_group(group_id, name)
         except sqlite3.IntegrityError:
-            messagebox.showerror("Ошибка", "Группа с таким названием уже существует."); return
+            messagebox.showerror("Ошибка", "Группа с таким названием уже существует.")
+            return
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_group_view_page(group_id)
 
     def delete_group_action(self, group_id: int) -> None:
         try:
             delete_group(group_id)
         except sqlite3.IntegrityError:
-            messagebox.showwarning("Ошибка удаления", "Невозможно удалить группу — в ней есть студенты."); return
+            show_toast(self.root, "Невозможно удалить группу — в ней есть студенты.", "error")
+            return
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_groups_page()
 
     # ── Medicines ─────────────────────────────────────────────────────────────
@@ -432,18 +465,14 @@ class App:
         for id, name, unit, qty, exp_date_str in rows:
             if self.search_query_medicines and self.search_query_medicines not in name.lower():
                 continue
-            is_expired = is_expiring = False
-            if exp_date_str:
-                try:
-                    d = datetime.strptime(exp_date_str, "%d.%m.%Y")
-                    is_expired = d < now
-                    is_expiring = d <= fourteen_days
-                except ValueError:
-                    pass
+            is_expired, is_expiring = get_medicine_expiration_status(exp_date_str)
             is_low_qty = qty <= 5
-            if self.filter_status_medicines == "Просроченные" and not is_expired: continue
-            if self.filter_status_medicines == "Истекают (2 недели)" and not is_expiring: continue
-            if self.filter_status_medicines == "Мало (<= 5)" and not is_low_qty: continue
+            if self.filter_status_medicines == "Просроченные" and not is_expired:
+                continue
+            if self.filter_status_medicines == "Истекают (2 недели)" and not is_expiring:
+                continue
+            if self.filter_status_medicines == "Мало (<= 5)" and not is_low_qty:
+                continue
             filtered.append((id, name, qty, unit, exp_date_str, is_expiring, is_low_qty))
         self.medicines_page.set_rows(filtered)
 
@@ -451,21 +480,24 @@ class App:
         try:
             insert_medicine(data)
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_medicines_page()
 
     def edit_medicine(self, medicine_id: int, data: dict) -> None:
         try:
             update_medicine(medicine_id, data)
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_medicine_view_page(medicine_id)
 
     def delete_medicine_action(self, medicine_id: int) -> None:
         try:
             delete_medicine(medicine_id)
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_medicines_page()
 
     def order_medicines_action(self) -> None:
@@ -474,18 +506,12 @@ class App:
         fourteen_days = now + timedelta(days=14)
         to_order = []
         for id, name, unit, qty, exp_date_str in rows:
-            is_expired = is_expiring = False
-            if exp_date_str:
-                try:
-                    d = datetime.strptime(exp_date_str, "%d.%m.%Y")
-                    is_expired = d < now
-                    is_expiring = d <= fourteen_days
-                except ValueError:
-                    pass
+            is_expired, is_expiring = get_medicine_expiration_status(exp_date_str)
             if qty <= 5 or is_expiring:
                 to_order.append({"id": id, "name": name, "unit": unit, "quantity": qty, "expiration_date": exp_date_str})
         if not to_order:
-            messagebox.showinfo("Заказ лекарств", "Все лекарства в норме. Заказывать ничего не нужно."); return
+            show_toast(self.root, "Все лекарства в норме. Заказывать ничего не нужно.", "info")
+            return
         OrderMedicinesDialog(self.root, to_order, self.confirm_order_medicines)
 
     def confirm_order_medicines(self, result: list) -> None:
@@ -496,7 +522,7 @@ class App:
         except sqlite3.DatabaseError as exc:
             messagebox.showerror("Ошибка базы данных", str(exc))
         self.refresh_medicines_table()
-        messagebox.showinfo("Успех", "Заказ оформлен: старые партии списаны, новые добавлены.")
+        show_toast(self.root, "Заказ оформлен: старые партии списаны, новые добавлены.", "success")
 
     # ── Appeals ───────────────────────────────────────────────────────────────
     def show_appeals_page(self) -> None:
@@ -537,21 +563,24 @@ class App:
         try:
             insert_appeal(data)
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_appeals_page()
 
     def edit_appeal(self, appeal_id: int, data: dict) -> None:
         try:
             update_appeal(appeal_id, data)
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_appeal_view_page(appeal_id)
 
     def delete_appeal_action(self, appeal_id: int) -> None:
         try:
             delete_appeal(appeal_id)
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_appeals_page()
 
 

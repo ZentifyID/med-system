@@ -7,7 +7,7 @@ import customtkinter as ctk
 from app.ui import (
     BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, ACCENT, ACCENT_LIGHT,
     BORDER, ENTRY_BG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
-    FONT_FAMILY, FONT_MEDIUM
+    FONT_FAMILY, FONT_MEDIUM, sort_treeview_column
 )
 
 
@@ -59,7 +59,7 @@ def _make_table_card(parent: tk.Frame, columns: tuple, headings: dict, widths: d
 
     tv = ttk.Treeview(inner, columns=columns, show="headings")
     for col in columns:
-        tv.heading(col, text=headings.get(col, col))
+        tv.heading(col, text=headings.get(col, col), command=lambda c=col: sort_treeview_column(tv, c, False))
         anchor = (anchors or {}).get(col, tk.W)
         tv.column(col, width=widths.get(col, 150), anchor=anchor, stretch=True)
 
@@ -70,6 +70,23 @@ def _make_table_card(parent: tk.Frame, columns: tuple, headings: dict, widths: d
     tv.configure(yscrollcommand=sb.set)
     tv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
     sb.pack(side=tk.RIGHT, fill=tk.Y)
+
+    def on_right_click(event):
+        item = tv.identify_row(event.y)
+        if item:
+            tv.selection_set(item)
+            menu = tk.Menu(parent, tearoff=0, font=(FONT_FAMILY, 10))
+            if hasattr(parent, "_open_selected"):
+                menu.add_command(label="Открыть / Редактировать", command=parent._open_selected)
+            if hasattr(parent, "_copy_fio"):
+                menu.add_command(label="Скопировать основное значение", command=parent._copy_fio)
+            if hasattr(parent, "on_delete_cb"):
+                menu.add_separator()
+                menu.add_command(label="Удалить", command=lambda: parent.on_delete_cb(int(item)))
+            menu.tk_popup(event.x_root, event.y_root)
+
+    tv.bind("<Button-3>", on_right_click)
+    
     return card, tv
 
 
@@ -82,9 +99,10 @@ def _make_action_bar(parent: tk.Frame, buttons: list[tuple[str, bool, Callable]]
 
 
 class EmployeesPage(tk.Frame):
-    def __init__(self, master, on_add, on_back, on_select, on_filter_changed):
+    def __init__(self, master, on_add, on_back, on_select, on_delete=None, on_filter_changed=None):
         super().__init__(master, bg=BG_COLOR)
         self.on_select = on_select
+        self.on_delete_cb = on_delete
         self.on_filter_changed = on_filter_changed
 
         _make_section_header(self, "Сотрудники", "+ Добавить", on_add)
@@ -133,14 +151,26 @@ class EmployeesPage(tk.Frame):
         if sel:
             self.on_select(int(sel[0]))
 
+    def _copy_fio(self):
+        sel = self.table.selection()
+        if sel:
+            vals = self.table.item(sel[0], "values")
+            if vals:
+                self.clipboard_clear()
+                self.clipboard_append(vals[0])
+
     def _trigger_filter(self, *args):
+        self.config(cursor="watch")
+        self.update_idletasks()
         self.on_filter_changed(self.search_var.get(), self.filter_var.get())
+        self.config(cursor="")
 
 
 class StudentsPage(tk.Frame):
-    def __init__(self, master, on_add, on_groups, on_back, on_select, on_filter_changed):
+    def __init__(self, master, on_add, on_groups, on_back, on_select, on_delete=None, on_filter_changed=None):
         super().__init__(master, bg=BG_COLOR)
         self.on_select = on_select
+        self.on_delete_cb = on_delete
         self.on_filter_changed = on_filter_changed
 
         _make_section_header(self, "Студенты", "+ Добавить", on_add)
@@ -188,14 +218,26 @@ class StudentsPage(tk.Frame):
         if sel:
             self.on_select(int(sel[0]))
 
+    def _copy_fio(self):
+        sel = self.table.selection()
+        if sel:
+            vals = self.table.item(sel[0], "values")
+            if vals:
+                self.clipboard_clear()
+                self.clipboard_append(vals[0])
+
     def _trigger_filter(self, *args):
+        self.config(cursor="watch")
+        self.update_idletasks()
         self.on_filter_changed(self.search_var.get(), self.filter_var.get())
+        self.config(cursor="")
 
 
 class MedicinesPage(tk.Frame):
-    def __init__(self, master, on_add, on_back, on_select, on_order, on_filter_changed):
+    def __init__(self, master, on_add, on_back, on_select, on_order=None, on_delete=None, on_filter_changed=None):
         super().__init__(master, bg=BG_COLOR)
         self.on_select = on_select
+        self.on_delete_cb = on_delete
         self.on_filter_changed = on_filter_changed
 
         _make_section_header(self, "Лекарства", "+ Добавить", on_add)
@@ -238,14 +280,26 @@ class MedicinesPage(tk.Frame):
         if sel:
             self.on_select(int(sel[0]))
 
+    def _copy_fio(self):
+        sel = self.table.selection()
+        if sel:
+            vals = self.table.item(sel[0], "values")
+            if vals:
+                self.clipboard_clear()
+                self.clipboard_append(vals[0])
+
     def _trigger_filter(self, *args):
+        self.config(cursor="watch")
+        self.update_idletasks()
         self.on_filter_changed(self.search_var.get(), self.filter_var.get())
+        self.config(cursor="")
 
 
 class AppealsPage(tk.Frame):
-    def __init__(self, master, on_add, on_back, on_select, on_filter_changed):
+    def __init__(self, master, on_add, on_back, on_select, on_delete=None, on_filter_changed=None):
         super().__init__(master, bg=BG_COLOR)
         self.on_select = on_select
+        self.on_delete_cb = on_delete
         self.on_filter_changed = on_filter_changed
 
         _make_section_header(self, "Обращения", "+ Добавить", on_add)
@@ -274,14 +328,26 @@ class AppealsPage(tk.Frame):
         if sel:
             self.on_select(int(sel[0]))
 
+    def _copy_fio(self):
+        sel = self.table.selection()
+        if sel:
+            vals = self.table.item(sel[0], "values")
+            if vals:
+                self.clipboard_clear()
+                self.clipboard_append(vals[0])
+
     def _trigger_filter(self, *args):
+        self.config(cursor="watch")
+        self.update_idletasks()
         self.on_filter_changed(self.search_var.get())
+        self.config(cursor="")
 
 
 class GroupsPage(tk.Frame):
-    def __init__(self, master, on_add, on_back, on_select):
+    def __init__(self, master, on_add, on_back, on_select, on_delete=None):
         super().__init__(master, bg=BG_COLOR)
         self.on_select = on_select
+        self.on_delete_cb = on_delete
 
         _make_section_header(self, "Учебные группы", "+ Добавить", on_add)
         tk.Frame(self, bg=BG_COLOR, height=20).pack()
@@ -302,3 +368,11 @@ class GroupsPage(tk.Frame):
         sel = self.table.selection()
         if sel:
             self.on_select(int(sel[0]))
+
+    def _copy_fio(self):
+        sel = self.table.selection()
+        if sel:
+            vals = self.table.item(sel[0], "values")
+            if vals:
+                self.clipboard_clear()
+                self.clipboard_append(vals[0])

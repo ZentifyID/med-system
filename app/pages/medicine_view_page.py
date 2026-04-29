@@ -147,7 +147,9 @@ class MedicineViewPage(tk.Frame):
         elif not data["quantity"].isdigit(): errors.append("Количество должно быть числом.")
         if not data["unit"]: errors.append("Введите единицы измерения.")
         if not data["expiration_date"] or len(data["expiration_date"]) != 10: errors.append("Введите срок годности (ДД.ММ.ГГГГ).")
-        if errors: messagebox.showwarning("Ошибка", "\n".join(errors)); return
+        if errors:
+            messagebox.showwarning("Ошибка", "\n".join(errors))
+            return
         self._on_save(self.medicine_id, data)
 
     def _date_focus_in(self, k):

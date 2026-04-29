@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 AFFILIATION_UI_VALUES = ("основной", "внешний совместитель")
@@ -169,3 +169,37 @@ def validate_student_payload(payload: dict[str, str]) -> list[str]:
          errors.append("Некорректный ID группы.")
 
     return errors
+
+
+def get_person_expiration_status(dates: list[str]) -> tuple[bool, bool]:
+    """Returns (is_expired, is_expiring) for a list of person dates (med, san, flu)."""
+    now = datetime.now()
+    fourteen_days = now + timedelta(days=14)
+    exp_dates = []
+    for d_str in dates:
+        try:
+            d = datetime.strptime(d_str, "%d.%m.%Y")
+            try:
+                exp = d.replace(year=d.year + 1)
+            except ValueError:
+                exp = d.replace(year=d.year + 1, month=2, day=28)
+            exp_dates.append(exp)
+        except ValueError:
+            pass
+    is_expired = any(e < now for e in exp_dates)
+    is_expiring = any(now <= e <= fourteen_days for e in exp_dates)
+    return is_expired, is_expiring
+
+def get_medicine_expiration_status(exp_date_str: str) -> tuple[bool, bool]:
+    """Returns (is_expired, is_expiring) for a medicine expiration date."""
+    now = datetime.now()
+    fourteen_days = now + timedelta(days=14)
+    is_expired = is_expiring = False
+    if exp_date_str:
+        try:
+            d = datetime.strptime(exp_date_str, "%d.%m.%Y")
+            is_expired = d < now
+            is_expiring = d <= fourteen_days
+        except ValueError:
+            pass
+    return is_expired, is_expiring

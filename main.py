@@ -26,7 +26,14 @@ def load_fonts(font_dir: str) -> None:
             print(f"Failed to load font: {font_file.name}")
 
 if __name__ == "__main__":
-    # Load fonts before starting the app
-    load_fonts("assets/fonts")
+    import sys
+    # Если запущено как exe, PyInstaller распаковывает данные во временную папку _MEIPASS
+    if getattr(sys, 'frozen', False):
+        base_path = Path(sys._MEIPASS)
+    else:
+        base_path = Path(__file__).parent.resolve()
+        
+    font_dir = base_path / "assets" / "fonts"
+    load_fonts(str(font_dir))
     
     run_app()

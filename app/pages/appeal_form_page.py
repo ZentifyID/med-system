@@ -7,7 +7,7 @@ import customtkinter as ctk
 from app.ui import (
     BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, 
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
-    FONT_FAMILY, FONT_MEDIUM
+    FONT_FAMILY, FONT_MEDIUM, show_toast
 )
 
 
@@ -18,6 +18,7 @@ class AppealFormPage(tk.Frame):
         self._on_cancel = on_cancel
         self.title_var = tk.StringVar()
         self.sender_var = tk.StringVar()
+        self.draft_data = {"title": "", "sender": "", "text": ""}
 
         # Header
         hdr = tk.Frame(self, bg=BG_COLOR)
@@ -42,12 +43,16 @@ class AppealFormPage(tk.Frame):
 
         # Title
         tk.Label(inner, text="Заголовок", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
-        ctk.CTkEntry(
+        self.title_entry = ctk.CTkEntry(
             inner, textvariable=self.title_var,
             font=(FONT_FAMILY, 14),
             fg_color=ENTRY_BG, text_color=ENTRY_FG,
             border_color=ENTRY_BORDER, corner_radius=CORNER_RADIUS, height=40,
-        ).pack(fill=tk.X, pady=(0, 16))
+        )
+        self.title_entry.pack(fill=tk.X, pady=(0, 16))
+        
+        # Inline validation reset on focus in
+        self.title_entry.bind("<FocusIn>", lambda e: self.title_entry.configure(border_color=ENTRY_BORDER))
 
         # Sender
         tk.Label(inner, text="От кого", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
@@ -58,43 +63,71 @@ class AppealFormPage(tk.Frame):
         tk.Label(inner, text="Текст обращения", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
         
         # Container for text widget to have border
-        text_frame = tk.Frame(inner, bg=ENTRY_BORDER, padx=1, pady=1)
-        text_frame.pack(fill=tk.BOTH, expand=True)
+        self.text_frame = tk.Frame(inner, bg=ENTRY_BORDER, padx=1, pady=1)
+        self.text_frame.pack(fill=tk.BOTH, expand=True)
         
         self.text_widget = tk.Text(
-            text_frame, 
+            self.text_frame, 
             font=(FONT_FAMILY, 11), 
             bg=ENTRY_BG, 
             fg=ENTRY_FG, 
             relief=tk.FLAT, 
             padx=10, 
             pady=10,
-            height=8
+            height=8,
+            undo=True
         )
         self.text_widget.pack(fill=tk.BOTH, expand=True)
+        self.text_widget.bind("<FocusIn>", lambda e: self.text_frame.configure(bg=ENTRY_BORDER))
 
         # Actions
         actions = tk.Frame(self, bg=BG_COLOR)
         actions.pack(fill=tk.X, padx=36, pady=(0, 32))
         
         FlatButton(actions, primary=True, text="Сохранить", command=self._submit, height=44, width=160).pack(side=tk.RIGHT)
-        FlatButton(actions, primary=False, text="Отмена", command=self._on_cancel, height=44, width=120).pack(side=tk.RIGHT, padx=(0, 12))
+        FlatButton(actions, primary=False, text="Отмена", command=self._cancel_and_save_draft, height=44, width=120).pack(side=tk.RIGHT, padx=(0, 12))
 
     def set_senders(self, senders: list[str]) -> None:
         self.sender_combo["values"] = senders
 
     def reset_form(self) -> None:
-        self.title_var.set("")
-        self.sender_var.set("")
+        self.title_var.set(self.draft_data["title"])
+        self.sender_var.set(self.draft_data["sender"])
         self.text_widget.delete("1.0", tk.END)
+        if self.draft_data["text"]:
+            self.text_widget.insert("1.0", self.draft_data["text"])
+            
+        self.title_entry.configure(border_color=ENTRY_BORDER)
+        self.text_frame.configure(bg=ENTRY_BORDER)
+
+    def _cancel_and_save_draft(self) -> None:
+        self.draft_data["title"] = self.title_var.get()
+        self.draft_data["sender"] = self.sender_var.get()
+        self.draft_data["text"] = self.text_widget.get("1.0", tk.END).strip()
+        
+        self.title_entry.configure(border_color=ENTRY_BORDER)
+        self.text_frame.configure(bg=ENTRY_BORDER)
+        self._on_cancel()
 
     def _submit(self) -> None:
         data = {"title": self.title_var.get().strip(), "sender": self.sender_var.get().strip(), "text": self.text_widget.get("1.0", tk.END).strip()}
         errors = []
-        if not data["title"]: errors.append("Введите заголовок.")
-        if not data["sender"]: errors.append("Выберите отправителя.")
-        if not data["text"]: errors.append("Введите текст обращения.")
-        if errors: messagebox.showwarning("Ошибка", "\n".join(errors)); return
+        
+        if not data["title"]: 
+            errors.append("Введите заголовок.")
+            self.title_entry.configure(border_color="#EF4444")
+        if not data["sender"]: 
+            errors.append("Выберите отправителя.")
+        if not data["text"]: 
+            errors.append("Введите текст обращения.")
+            self.text_frame.configure(bg="#EF4444")
+            
+        if errors:
+            show_toast(self.winfo_toplevel(), "\n".join(errors), "error")
+            return
+            
+        # Clear draft after successful submit
+        self.draft_data = {"title": "", "sender": "", "text": ""}
         self._on_save(data)
 
 
@@ -176,7 +209,8 @@ class AppealViewPage(tk.Frame):
             padx=10, 
             pady=10, 
             height=10, 
-            state=tk.DISABLED
+            state=tk.DISABLED,
+            undo=True
         )
         self.text_widget.pack(fill=tk.BOTH, expand=True)
 
@@ -256,5 +290,7 @@ class AppealViewPage(tk.Frame):
         if not data["title"]: errors.append("Введите заголовок.")
         if not data["sender"]: errors.append("Выберите отправителя.")
         if not data["text"]: errors.append("Введите текст.")
-        if errors: messagebox.showwarning("Ошибка", "\n".join(errors)); return
+        if errors:
+            messagebox.showwarning("Ошибка", "\n".join(errors))
+            return
         self._on_save(self.appeal_id, data)

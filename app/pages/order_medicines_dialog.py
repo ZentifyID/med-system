@@ -95,8 +95,12 @@ class OrderMedicinesDialog(tk.Toplevel):
                 errors.append(f"Некорректный срок годности: {name}")
             if not errors:
                 result.append({"old_id": m_id, "name": name, "unit": v["unit"], "new_quantity": qty_str, "new_expiration_date": exp_str})
-        if errors: messagebox.showwarning("Ошибка", "\n".join(errors[:10]), parent=self); return
-        if not result: messagebox.showinfo("Информация", "Не выбрано ни одной позиции.", parent=self); return
+        if errors:
+            messagebox.showwarning("Ошибка", "\n".join(errors[:10]), parent=self)
+            return
+        if not result:
+            messagebox.showinfo("Информация", "Не выбрано ни одной позиции.", parent=self)
+            return
         if messagebox.askyesno("Подтверждение", "Старые партии будут списаны. Продолжить?", parent=self):
             self.on_confirm(result)
             self.destroy()
