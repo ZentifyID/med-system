@@ -52,8 +52,8 @@ CORNER_RADIUS       = 10
 MAIN_BUTTON_RADIUS  = 25
 
 # Typography
-FONT_FAMILY = "Google Sans"
-FONT_MEDIUM = "Google Sans Medium"
+FONT_FAMILY = "Segoe UI"
+FONT_MEDIUM = "Segoe UI"
 
 
 class FlatButton(ctk.CTkFrame):
@@ -98,7 +98,7 @@ class FlatButton(ctk.CTkFrame):
             text_color=self.text_col,
             fg_color="transparent"
         )
-        self.label.place(relx=0.5, rely=0.55, anchor="center")
+        self.label.place(relx=0.5, rely=0.5, anchor="center")
 
         # Bindings
         for w in [self, self.label]:
@@ -153,7 +153,7 @@ class SidebarButton(ctk.CTkFrame):
             text_color=TEXT_SIDEBAR,
             fg_color="transparent"
         )
-        self.text_label.place(x=52, rely=0.57, anchor="w")
+        self.text_label.place(x=52, rely=0.5, anchor="w")
 
         # Bindings
         for w in [self, self.icon_label, self.text_label]:
@@ -245,6 +245,8 @@ def setup_styles(root: tk.Tk) -> None:
     style.map(
         "TCombobox",
         fieldbackground=[("readonly", ENTRY_BG)],
+        selectbackground=[("readonly", ENTRY_BG), ("focus", ENTRY_BG)],
+        selectforeground=[("readonly", TEXT_COLOR), ("focus", TEXT_COLOR)],
         bordercolor=[("focus", ACCENT)],
     )
 

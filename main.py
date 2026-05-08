@@ -33,7 +33,4 @@ if __name__ == "__main__":
     else:
         base_path = Path(__file__).parent.resolve()
         
-    font_dir = base_path / "assets" / "fonts"
-    load_fonts(str(font_dir))
-    
     run_app()
