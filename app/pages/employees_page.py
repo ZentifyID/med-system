@@ -6,7 +6,7 @@ import customtkinter as ctk
 
 from app.ui import (
     BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, ACCENT, ACCENT_LIGHT,
-    BORDER, ENTRY_BG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
+    BORDER, ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
     FONT_FAMILY, FONT_MEDIUM, sort_treeview_column
 )
 
@@ -38,9 +38,14 @@ def _make_search_bar(parent: tk.Frame, search_var: tk.StringVar, filter_var: tk.
     search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 12))
 
     if filter_var and filter_values:
-        combo = ttk.Combobox(bar, textvariable=filter_var, state="readonly", values=filter_values, width=24, font=(FONT_FAMILY, 10))
+        combo = ctk.CTkComboBox(
+            bar, variable=filter_var, state="readonly", values=filter_values, width=200,
+            font=(FONT_FAMILY, 14), dropdown_font=(FONT_FAMILY, 12),
+            fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER,
+            button_color=ENTRY_BORDER, button_hover_color=ACCENT, corner_radius=CORNER_RADIUS, height=44,
+            command=trigger_fn
+        )
         combo.pack(side=tk.RIGHT)
-        combo.bind("<<ComboboxSelected>>", trigger_fn)
 
 
 def _make_table_card(parent: tk.Frame, columns: tuple, headings: dict, widths: dict, anchors: dict | None = None) -> tuple[tk.Frame, ttk.Treeview]:

@@ -5,7 +5,7 @@ from typing import Callable, cast
 import customtkinter as ctk
 
 from app.ui import (
-    BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, 
+    BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ACCENT,
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
     FONT_FAMILY, FONT_MEDIUM, DateMaskHandler
 )
@@ -47,7 +47,7 @@ class StudentViewPage(tk.Frame):
         self.is_edit_mode = False
         self.group_mapping: dict[str, str] = {}
         self.group_mapping_reverse: dict[str, str] = {}
-        self.group_combobox: ttk.Combobox | None = None
+        self.group_combobox: ctk.CTkComboBox | None = None
 
         # Header
         hdr = tk.Frame(self, bg=BG_COLOR)
@@ -90,12 +90,16 @@ class StudentViewPage(tk.Frame):
 
             # View label
             val_label = tk.Label(self.form_container, textvariable=var, font=(FONT_FAMILY, 11), bg=BG_CARD, fg=TEXT_COLOR, anchor="w")
-            val_label.grid(row=row, column=input_col, sticky="ew", padx=(0, 8 if block == 0 else 0), pady=(10, 6))
+            val_label.grid(row=row, column=input_col, sticky="ew", padx=(0, 8 if block == 0 else 0), pady=8)
             self.form_labels[key] = val_label
 
             # Edit widget
             if key == "group_id":
-                field = ttk.Combobox(self.form_container, textvariable=var, state="readonly", font=(FONT_FAMILY, 10))
+                field = ctk.CTkComboBox(
+                    self.form_container, variable=var, state="readonly", font=(FONT_FAMILY, 14), dropdown_font=(FONT_FAMILY, 12),
+                    fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER,
+                    button_color=ENTRY_BORDER, button_hover_color=ACCENT, corner_radius=CORNER_RADIUS, height=40
+                )
                 self.group_combobox = field
             else:
                 field = ctk.CTkEntry(
@@ -137,7 +141,7 @@ class StudentViewPage(tk.Frame):
         self.group_mapping = {name: str(id) for id, name in groups}
         self.group_mapping_reverse = {str(id): name for id, name in groups}
         if self.group_combobox:
-            self.group_combobox["values"] = list(self.group_mapping.keys())
+            self.group_combobox.configure(values=list(self.group_mapping.keys()))
             if self.original_data:
                 gid = self.original_data.get("group_id", "")
                 self.form_vars["group_id"].set(self.group_mapping_reverse.get(gid, ""))

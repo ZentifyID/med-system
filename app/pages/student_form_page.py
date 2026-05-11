@@ -5,7 +5,7 @@ from typing import Callable
 import customtkinter as ctk
 
 from app.ui import (
-    BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, 
+    BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ACCENT,
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
     FONT_FAMILY, FONT_MEDIUM, DateMaskHandler
 )
@@ -40,7 +40,7 @@ class StudentFormPage(tk.Frame):
         self.form_vars: dict[str, tk.StringVar] = {}
         self.form_entries: dict[str, tk.Entry | ctk.CTkEntry] = {}
         self.group_mapping: dict[str, str] = {}
-        self.group_combobox: ttk.Combobox | None = None
+        self.group_combobox: ctk.CTkComboBox | None = None
 
         # Header
         hdr = tk.Frame(self, bg=BG_COLOR)
@@ -81,7 +81,11 @@ class StudentFormPage(tk.Frame):
             self.form_vars[key] = var
 
             if key == "group_id":
-                cb = ttk.Combobox(inner, textvariable=var, state="readonly", font=(FONT_FAMILY, 10))
+                cb = ctk.CTkComboBox(
+                    inner, variable=var, state="readonly", font=(FONT_FAMILY, 14), dropdown_font=(FONT_FAMILY, 12),
+                    fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER,
+                    button_color=ENTRY_BORDER, button_hover_color=ACCENT, corner_radius=CORNER_RADIUS, height=40
+                )
                 cb.grid(row=row, column=input_col, sticky="ew", padx=(0, 8 if block == 0 else 0), pady=4)
                 self.group_combobox = cb
             else:
@@ -112,9 +116,10 @@ class StudentFormPage(tk.Frame):
     def set_groups(self, groups: list[tuple[int, str]]) -> None:
         self.group_mapping = {name: str(id) for id, name in groups}
         if self.group_combobox:
-            self.group_combobox["values"] = list(self.group_mapping.keys())
-            if self.group_combobox["values"]:
-                self.form_vars["group_id"].set(self.group_combobox["values"][0])
+            vals = list(self.group_mapping.keys())
+            self.group_combobox.configure(values=vals)
+            if vals:
+                self.form_vars["group_id"].set(vals[0])
 
     def reset_form(self) -> None:
         for key, var in self.form_vars.items():

@@ -53,7 +53,10 @@ class OrderMedicinesDialog(tk.Toplevel):
 
             top = tk.Frame(content, bg=BG_CARD)
             top.pack(fill=tk.X)
-            tk.Checkbutton(top, variable=check_var, bg=BG_CARD, activebackground=BG_CARD, selectcolor=BG_CARD).pack(side=tk.LEFT)
+            ctk.CTkCheckBox(
+                top, variable=check_var, text="", width=24, 
+                fg_color=ACCENT, border_color=ENTRY_BORDER, hover_color=ACCENT
+            ).pack(side=tk.LEFT)
             tk.Label(top, text=f"{med['name']}", font=("Segoe UI", 10, "bold"), bg=BG_CARD, fg=TEXT_COLOR).pack(side=tk.LEFT, padx=(4, 0))
             tk.Label(top, text=f"  Остаток: {med['quantity']} {med['unit']}  |  Годен до: {med['expiration_date']}", font=("Segoe UI", 9), bg=BG_CARD, fg=TEXT_MUTED).pack(side=tk.LEFT)
 

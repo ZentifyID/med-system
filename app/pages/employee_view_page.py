@@ -5,7 +5,7 @@ from typing import Callable, Any
 import customtkinter as ctk
 
 from app.ui import (
-    BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, 
+    BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ACCENT,
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
     FONT_FAMILY, FONT_MEDIUM, DateMaskHandler
 )
@@ -103,14 +103,16 @@ class EmployeeViewPage(tk.Frame):
                 self.form_container, textvariable=var, font=(FONT_FAMILY, 11), 
                 bg=BG_CARD, fg=TEXT_COLOR, anchor="w"
             )
-            val_label.grid(row=row, column=input_col, sticky="ew", padx=(0, 8 if block == 0 else 0), pady=(10, 6))
+            val_label.grid(row=row, column=input_col, sticky="ew", padx=(0, 8 if block == 0 else 0), pady=8)
             self.form_labels[key] = val_label
 
             # Edit Widget
             if key == "affiliation":
-                field = ttk.Combobox(
-                    self.form_container, textvariable=var, state="readonly", 
-                    values=AFFILIATION_UI_VALUES, font=(FONT_FAMILY, 10)
+                field = ctk.CTkComboBox(
+                    self.form_container, variable=var, state="readonly", values=AFFILIATION_UI_VALUES,
+                    font=(FONT_FAMILY, 14), dropdown_font=(FONT_FAMILY, 12),
+                    fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER,
+                    button_color=ENTRY_BORDER, button_hover_color=ACCENT, corner_radius=CORNER_RADIUS, height=40
                 )
             else:
                 field = ctk.CTkEntry(

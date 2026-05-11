@@ -5,7 +5,7 @@ from typing import Callable
 import customtkinter as ctk
 
 from app.ui import (
-    BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, 
+    BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ACCENT,
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
     FONT_FAMILY, FONT_MEDIUM, show_toast
 )
@@ -56,29 +56,27 @@ class AppealFormPage(tk.Frame):
 
         # Sender
         tk.Label(inner, text="От кого", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
-        self.sender_combo = ttk.Combobox(inner, textvariable=self.sender_var, state="readonly", font=(FONT_FAMILY, 10))
+        self.sender_combo = ctk.CTkComboBox(
+            inner, variable=self.sender_var, state="readonly", font=(FONT_FAMILY, 14), dropdown_font=(FONT_FAMILY, 12),
+            fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER,
+            button_color=ENTRY_BORDER, button_hover_color=ACCENT, corner_radius=CORNER_RADIUS, height=40
+        )
         self.sender_combo.pack(fill=tk.X, pady=(0, 16))
 
         # Text
         tk.Label(inner, text="Текст обращения", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
         
-        # Container for text widget to have border
-        self.text_frame = tk.Frame(inner, bg=ENTRY_BORDER, padx=1, pady=1)
-        self.text_frame.pack(fill=tk.BOTH, expand=True)
-        
-        self.text_widget = tk.Text(
-            self.text_frame, 
-            font=(FONT_FAMILY, 11), 
-            bg=ENTRY_BG, 
-            fg=ENTRY_FG, 
-            relief=tk.FLAT, 
-            padx=10, 
-            pady=10,
-            height=8,
-            undo=True
+        self.text_widget = ctk.CTkTextbox(
+            inner, 
+            font=(FONT_FAMILY, 14), 
+            fg_color=ENTRY_BG, 
+            text_color=ENTRY_FG,
+            border_color=ENTRY_BORDER,
+            border_width=1,
+            corner_radius=CORNER_RADIUS,
+            height=160,
         )
         self.text_widget.pack(fill=tk.BOTH, expand=True)
-        self.text_widget.bind("<FocusIn>", lambda e: self.text_frame.configure(bg=ENTRY_BORDER))
 
         # Actions
         actions = tk.Frame(self, bg=BG_COLOR)
@@ -88,7 +86,7 @@ class AppealFormPage(tk.Frame):
         FlatButton(actions, primary=False, text="Отмена", command=self._cancel_and_save_draft, height=44, width=120).pack(side=tk.RIGHT, padx=(0, 12))
 
     def set_senders(self, senders: list[str]) -> None:
-        self.sender_combo["values"] = senders
+        self.sender_combo.configure(values=senders)
 
     def reset_form(self) -> None:
         self.title_var.set(self.draft_data["title"])
@@ -98,7 +96,7 @@ class AppealFormPage(tk.Frame):
             self.text_widget.insert("1.0", self.draft_data["text"])
             
         self.title_entry.configure(border_color=ENTRY_BORDER)
-        self.text_frame.configure(bg=ENTRY_BORDER)
+        self.text_widget.configure(border_color=ENTRY_BORDER)
 
     def _cancel_and_save_draft(self) -> None:
         self.draft_data["title"] = self.title_var.get()
@@ -106,7 +104,7 @@ class AppealFormPage(tk.Frame):
         self.draft_data["text"] = self.text_widget.get("1.0", tk.END).strip()
         
         self.title_entry.configure(border_color=ENTRY_BORDER)
-        self.text_frame.configure(bg=ENTRY_BORDER)
+        self.text_widget.configure(border_color=ENTRY_BORDER)
         self._on_cancel()
 
     def _submit(self) -> None:
@@ -120,7 +118,7 @@ class AppealFormPage(tk.Frame):
             errors.append("Выберите отправителя.")
         if not data["text"]: 
             errors.append("Введите текст обращения.")
-            self.text_frame.configure(bg="#EF4444")
+            self.text_widget.configure(border_color="#EF4444")
             
         if errors:
             show_toast(self.winfo_toplevel(), "\n".join(errors), "error")
@@ -191,26 +189,25 @@ class AppealViewPage(tk.Frame):
         # Sender edit mode
         self.sender_edit_frame = tk.Frame(self.form_container, bg=BG_CARD)
         tk.Label(self.sender_edit_frame, text="От кого", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
-        self.sender_combo = ttk.Combobox(self.sender_edit_frame, textvariable=self.sender_var, state="readonly", font=(FONT_FAMILY, 10))
+        self.sender_combo = ctk.CTkComboBox(
+            self.sender_edit_frame, variable=self.sender_var, state="readonly", font=(FONT_FAMILY, 14), dropdown_font=(FONT_FAMILY, 12),
+            fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER,
+            button_color=ENTRY_BORDER, button_hover_color=ACCENT, corner_radius=CORNER_RADIUS, height=40
+        )
         self.sender_combo.pack(fill=tk.X, pady=(0, 16))
 
         # Text
         tk.Label(self.form_container, text="Текст обращения", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
         
-        self.text_box_frame = tk.Frame(self.form_container, bg=ENTRY_BORDER, padx=1, pady=1)
-        self.text_box_frame.pack(fill=tk.BOTH, expand=True)
-        
-        self.text_widget = tk.Text(
-            self.text_box_frame, 
-            font=(FONT_FAMILY, 11), 
-            bg=ENTRY_BG, 
-            fg=ENTRY_FG, 
-            relief=tk.FLAT, 
-            padx=10, 
-            pady=10, 
-            height=10, 
-            state=tk.DISABLED,
-            undo=True
+        self.text_widget = ctk.CTkTextbox(
+            self.form_container, 
+            font=(FONT_FAMILY, 14), 
+            fg_color=ENTRY_BG, 
+            text_color=ENTRY_FG,
+            border_color=ENTRY_BORDER,
+            border_width=1,
+            corner_radius=CORNER_RADIUS,
+            height=200,
         )
         self.text_widget.pack(fill=tk.BOTH, expand=True)
 
@@ -233,7 +230,7 @@ class AppealViewPage(tk.Frame):
 
     def set_senders(self, senders: list[str]) -> None:
         self.senders = senders
-        self.sender_combo["values"] = senders
+        self.sender_combo.configure(values=senders)
 
     def set_appeal_data(self, data: dict) -> None:
         self.appeal_id = int(data["id"])
@@ -242,10 +239,10 @@ class AppealViewPage(tk.Frame):
         self.title_var.set(data.get("title", ""))
         self.sender_var.set(data.get("sender", ""))
         self.created_at_var.set(data.get("created_at", ""))
-        self.text_widget.config(state=tk.NORMAL)
+        self.text_widget.configure(state="normal")
         self.text_widget.delete("1.0", tk.END)
         self.text_widget.insert(tk.END, data.get("text", ""))
-        self.text_widget.config(state=tk.DISABLED)
+        self.text_widget.configure(state="disabled")
         if self.is_edit_mode: self._toggle_edit_mode()
 
     def _toggle_edit_mode(self) -> None:
@@ -256,27 +253,27 @@ class AppealViewPage(tk.Frame):
             self.title_label.pack_forget()
             self.title_entry.pack(fill=tk.X, pady=(0, 16), before=self.info_frame)
             self.info_frame.pack_forget()
-            self.sender_edit_frame.pack(fill=tk.X, pady=(0, 16), before=self.text_box_frame)
-            self.text_widget.config(state=tk.NORMAL)
+            self.sender_edit_frame.pack(fill=tk.X, pady=(0, 16), before=self.text_widget)
+            self.text_widget.configure(state="normal")
             if self.sender_var.get() not in self.senders:
-                self.sender_combo["values"] = self.senders + [self.sender_var.get()]
+                self.sender_combo.configure(values=self.senders + [self.sender_var.get()])
         else:
             self.save_button.pack_forget(); self.cancel_button.pack_forget()
             self._show_view_actions()
             self.title_entry.pack_forget()
             self.title_label.pack(fill=tk.X, pady=(0, 16), before=self.sender_edit_frame)
             self.sender_edit_frame.pack_forget()
-            self.info_frame.pack(fill=tk.X, pady=(0, 16), before=self.text_box_frame)
-            self.text_widget.config(state=tk.DISABLED)
+            self.info_frame.pack(fill=tk.X, pady=(0, 16), before=self.text_widget)
+            self.text_widget.configure(state="disabled")
 
     def _cancel_edit(self) -> None:
         if self.original_data:
             self.title_var.set(self.original_data.get("title", ""))
             self.sender_var.set(self.original_data.get("sender", ""))
-            self.text_widget.config(state=tk.NORMAL)
+            self.text_widget.configure(state="normal")
             self.text_widget.delete("1.0", tk.END)
             self.text_widget.insert(tk.END, self.original_data.get("text", ""))
-            self.text_widget.config(state=tk.DISABLED)
+            self.text_widget.configure(state="disabled")
         self._toggle_edit_mode()
 
     def _delete(self) -> None:

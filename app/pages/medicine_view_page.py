@@ -60,7 +60,7 @@ class MedicineViewPage(tk.Frame):
 
             # View label
             val_label = tk.Label(self.form_container, textvariable=var, font=(FONT_FAMILY, 11), bg=BG_CARD, fg=TEXT_COLOR, anchor="w")
-            val_label.grid(row=row, column=1, sticky="ew", pady=(10, 6))
+            val_label.grid(row=row, column=1, sticky="ew", pady=8)
             self.form_labels[key] = val_label
 
             # Edit widget

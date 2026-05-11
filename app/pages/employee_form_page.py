@@ -38,8 +38,13 @@ FIELDS: list[tuple[str, str]] = [
 def _styled_entry(parent, var, key, validate_cmd):
     """Return a styled Entry or Combobox for a form field."""
     if key == "affiliation":
-        w = ttk.Combobox(parent, textvariable=var, state="readonly", values=AFFILIATION_UI_VALUES, font=(FONT_FAMILY, 10))
-        w.current(0)
+        w = ctk.CTkComboBox(
+            parent, variable=var, state="readonly", values=AFFILIATION_UI_VALUES,
+            font=(FONT_FAMILY, 14), dropdown_font=(FONT_FAMILY, 12),
+            fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER,
+            button_color=ENTRY_BORDER, button_hover_color=ACCENT, corner_radius=CORNER_RADIUS, height=40
+        )
+        w.set(AFFILIATION_UI_VALUES[0])
         return w
     entry = ctk.CTkEntry(
         parent,
