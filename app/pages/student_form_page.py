@@ -9,7 +9,7 @@ from app.ui import (
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
     FONT_FAMILY, FONT_MEDIUM, DateMaskHandler
 )
-from app.validators import DATE_FIELDS, STUDENT_FIELD_LABELS as FIELD_LABELS, validate_student_payload
+from app.validators import DATE_FIELDS, STUDENT_FIELD_LABELS as FIELD_LABELS, validate_student_payload, allow_typed_value
 
 DATE_PLACEHOLDER = "__.__.____"
 
@@ -89,6 +89,7 @@ class StudentFormPage(tk.Frame):
                 cb.grid(row=row, column=input_col, sticky="ew", padx=(0, 8 if block == 0 else 0), pady=4)
                 self.group_combobox = cb
             else:
+                vcmd = (self.register(lambda p, k=key: allow_typed_value(k, p)), "%P")
                 entry = ctk.CTkEntry(
                     inner,
                     textvariable=var,
@@ -98,6 +99,8 @@ class StudentFormPage(tk.Frame):
                     border_color=ENTRY_BORDER,
                     corner_radius=CORNER_RADIUS,
                     height=40,
+                    validate="key",
+                    validatecommand=vcmd,
                 )
                 entry.grid(row=row, column=input_col, sticky="ew", padx=(0, 8 if block == 0 else 0), pady=4)
                 self.form_entries[key] = entry

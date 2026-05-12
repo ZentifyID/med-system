@@ -12,6 +12,7 @@ from app.ui import (
 from app.validators import (
     AFFILIATION_UI_VALUES, DATE_FIELDS, FIELD_LABELS,
     normalize_affiliation, validate_employee_payload,
+    allow_typed_value,
 )
 
 DATE_PLACEHOLDER = "__.__.____"
@@ -35,7 +36,7 @@ FIELDS: list[tuple[str, str]] = [
 ]
 
 
-def _styled_entry(parent, var, key, validate_cmd):
+def _styled_entry(parent, var, key, vcmd):
     """Return a styled Entry or Combobox for a form field."""
     if key == "affiliation":
         w = ctk.CTkComboBox(
@@ -55,6 +56,8 @@ def _styled_entry(parent, var, key, validate_cmd):
         border_color=ENTRY_BORDER,
         corner_radius=CORNER_RADIUS,
         height=40,
+        validate="key",
+        validatecommand=vcmd,
     )
     return entry
 
@@ -106,7 +109,9 @@ class EmployeeFormPage(tk.Frame):
 
             var = tk.StringVar()
             self.form_vars[key] = var
-            widget = _styled_entry(inner, var, key, None)
+            
+            vcmd = (self.register(lambda p, k=key: allow_typed_value(k, p)), "%P")
+            widget = _styled_entry(inner, var, key, vcmd)
             widget.grid(row=row, column=input_col, sticky="ew", padx=(0, 8 if block == 0 else 0), pady=4)
 
             # Get actual entry for date bindings

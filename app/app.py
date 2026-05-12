@@ -112,6 +112,7 @@ class App:
             "students":  get_icon("students",  "🎓"),
             "medicine":  get_icon("medicine",  "💊"),
             "appeals":   get_icon("appeals",   "📋"),
+            "search":    get_icon("search",    "🔍"),
         }
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
@@ -175,22 +176,22 @@ class App:
             on_add_appeal=self.show_add_appeal_page,
             icons=self.icons,
         )
-        self.employees_page = EmployeesPage(c, on_add=self.show_add_employee_page, on_back=self.show_main_page, on_select=self.show_employee_view_page, on_delete=self.delete_employee_action, on_filter_changed=self.on_filter_changed)
+        self.employees_page = EmployeesPage(c, on_add=self.show_add_employee_page, on_back=self.show_main_page, on_select=self.show_employee_view_page, on_delete=self.delete_employee_action, on_filter_changed=self.on_filter_changed, search_icon=self.icons["search"])
         self.employee_form_page = EmployeeFormPage(c, on_save=self.save_employee, on_cancel=self.show_employees_page)
         self.employee_view_page = EmployeeViewPage(c, on_save=self.edit_employee, on_delete=self.delete_employee_action, on_cancel=self.show_employees_page)
 
-        self.students_page = StudentsPage(c, on_add=self.show_add_student_page, on_groups=self.show_groups_page, on_back=self.show_main_page, on_select=self.show_student_view_page, on_delete=self.delete_student_action, on_filter_changed=self.on_filter_changed_students)
+        self.students_page = StudentsPage(c, on_add=self.show_add_student_page, on_groups=self.show_groups_page, on_back=self.show_main_page, on_select=self.show_student_view_page, on_delete=self.delete_student_action, on_filter_changed=self.on_filter_changed_students, search_icon=self.icons["search"])
         self.student_form_page = StudentFormPage(c, on_save=self.save_student, on_cancel=self.show_students_page)
         self.student_view_page = StudentViewPage(c, on_save=self.edit_student, on_delete=self.delete_student_action, on_cancel=self.show_students_page)
         self.groups_page = GroupsPage(c, on_add=self.show_add_group_page, on_back=self.show_students_page, on_select=self.show_group_view_page, on_delete=self.delete_group_action)
         self.group_form_page = GroupFormPage(c, on_save=self.save_group, on_cancel=self.show_groups_page)
         self.group_view_page = GroupViewPage(c, on_save=self.edit_group, on_delete=self.delete_group_action, on_cancel=self.show_groups_page)
 
-        self.medicines_page = MedicinesPage(c, on_add=self.show_add_medicine_page, on_back=self.show_main_page, on_select=self.show_medicine_view_page, on_delete=self.delete_medicine_action, on_order=self.order_medicines_action, on_filter_changed=self.on_filter_changed_medicines)
+        self.medicines_page = MedicinesPage(c, on_add=self.show_add_medicine_page, on_back=self.show_main_page, on_select=self.show_medicine_view_page, on_delete=self.delete_medicine_action, on_order=self.order_medicines_action, on_filter_changed=self.on_filter_changed_medicines, search_icon=self.icons["search"])
         self.medicine_form_page = MedicineFormPage(c, on_save=self.save_medicine, on_cancel=self.show_medicines_page)
         self.medicine_view_page = MedicineViewPage(c, on_save=self.edit_medicine, on_delete=self.delete_medicine_action, on_cancel=self.show_medicines_page)
 
-        self.appeals_page = AppealsPage(c, on_add=self.show_add_appeal_page, on_back=self.show_main_page, on_select=self.show_appeal_view_page, on_delete=self.delete_appeal_action, on_filter_changed=self.on_filter_changed_appeals)
+        self.appeals_page = AppealsPage(c, on_add=self.show_add_appeal_page, on_back=self.show_main_page, on_select=self.show_appeal_view_page, on_delete=self.delete_appeal_action, on_filter_changed=self.on_filter_changed_appeals, search_icon=self.icons["search"])
         self.appeal_form_page = AppealFormPage(c, on_save=self.save_appeal, on_cancel=self.show_appeals_page)
         self.appeal_view_page = AppealViewPage(c, on_save=self.edit_appeal, on_delete=self.delete_appeal_action, on_cancel=self.show_appeals_page)
 

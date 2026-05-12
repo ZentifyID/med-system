@@ -37,6 +37,7 @@ FIELD_MAX_LENGTHS = {
     "sanminimum_date": 10,
     "medical_exam_date": 10,
     "fluorography_date": 10,
+    "group_id": 10,
 }
 
 LETTER_FIELDS = {"last_name", "first_name", "middle_name"}

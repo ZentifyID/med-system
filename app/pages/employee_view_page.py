@@ -12,6 +12,7 @@ from app.ui import (
 from app.validators import (
     AFFILIATION_UI_VALUES, DATE_FIELDS, FIELD_LABELS,
     normalize_affiliation, validate_employee_payload,
+    allow_typed_value,
 )
 
 DATE_PLACEHOLDER = "__.__.____"
@@ -115,10 +116,12 @@ class EmployeeViewPage(tk.Frame):
                     button_color=ENTRY_BORDER, button_hover_color=ACCENT, corner_radius=CORNER_RADIUS, height=40
                 )
             else:
+                vcmd = (self.register(lambda p, k=key: allow_typed_value(k, p)), "%P")
                 field = ctk.CTkEntry(
                     self.form_container, textvariable=var, font=(FONT_FAMILY, 14),
                     fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER,
-                    corner_radius=CORNER_RADIUS, height=40
+                    corner_radius=CORNER_RADIUS, height=40,
+                    validate="key", validatecommand=vcmd
                 )
                 if key in DATE_FIELDS:
                     DateMaskHandler.bind_to_entry(field, var)
