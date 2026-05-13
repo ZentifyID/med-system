@@ -9,7 +9,7 @@ from app.pages.shared_ui import (
 
 
 class GroupsPage(tk.Frame):
-    def __init__(self, master, on_add, on_back, on_select, on_delete=None):
+    def __init__(self, master, on_add, on_back, on_select, on_increment, on_delete=None):
         super().__init__(master, bg=BG_COLOR)
         self.on_select = on_select
         self.on_delete_cb = on_delete
@@ -20,7 +20,11 @@ class GroupsPage(tk.Frame):
         _, self.table = _make_table_card(self, ("name",), {"name": "Название группы"}, {"name": 760})
         self.table.bind("<Double-1>", lambda e: self._open_selected())
 
-        _make_action_bar(self, [("Открыть", True, self._open_selected), ("Назад", False, on_back)])
+        _make_action_bar(self, [
+            ("Открыть", True, self._open_selected),
+            ("Обновить курс", False, on_increment),
+            ("Назад", False, on_back)
+        ])
 
     def set_rows(self, rows):
         for item in self.table.get_children():

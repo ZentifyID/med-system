@@ -11,7 +11,7 @@ from app.ui import (
 )
 
 DATE_PLACEHOLDER = "__.__.____"
-MED_FIELDS = [("name", "Название препарата"), ("quantity", "Количество"), ("unit", "Единицы измерения"), ("expiration_date", "Срок годности")]
+MED_FIELDS = [("name", "Название препарата"), ("quantity", "Количество"), ("dosage", "Дозировка"), ("expiration_date", "Срок годности")]
 
 
 class MedicineViewPage(tk.Frame):
@@ -145,7 +145,7 @@ class MedicineViewPage(tk.Frame):
         if not data["name"]: errors.append("Введите название.")
         if not data["quantity"]: errors.append("Введите количество.")
         elif not data["quantity"].isdigit(): errors.append("Количество должно быть числом.")
-        if not data["unit"]: errors.append("Введите единицы измерения.")
+        if not data["dosage"]: errors.append("Введите дозировку.")
         if not data["expiration_date"] or len(data["expiration_date"]) != 10: errors.append("Введите срок годности (ДД.ММ.ГГГГ).")
         if errors:
             messagebox.showwarning("Ошибка", "\n".join(errors))

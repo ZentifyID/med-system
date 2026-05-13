@@ -43,7 +43,7 @@ class OrderMedicinesDialog(tk.Toplevel):
             check_var = tk.BooleanVar(value=True)
             qty_var = tk.StringVar()
             exp_var = tk.StringVar()
-            self.item_vars[m_id] = {"check": check_var, "qty": qty_var, "exp": exp_var, "name": med["name"], "unit": med["unit"]}
+            self.item_vars[m_id] = {"check": check_var, "qty": qty_var, "exp": exp_var, "name": med["name"], "dosage": med["dosage"]}
 
             row = tk.Frame(self.scroll_frame, bg=BG_CARD)
             row.pack(fill=tk.X, pady=4)
@@ -58,7 +58,7 @@ class OrderMedicinesDialog(tk.Toplevel):
                 fg_color=ACCENT, border_color=ENTRY_BORDER, hover_color=ACCENT
             ).pack(side=tk.LEFT)
             tk.Label(top, text=f"{med['name']}", font=("Segoe UI", 10, "bold"), bg=BG_CARD, fg=TEXT_COLOR).pack(side=tk.LEFT, padx=(4, 0))
-            tk.Label(top, text=f"  Остаток: {med['quantity']} {med['unit']}  |  Годен до: {med['expiration_date']}", font=("Segoe UI", 9), bg=BG_CARD, fg=TEXT_MUTED).pack(side=tk.LEFT)
+            tk.Label(top, text=f"  Остаток: {med['quantity']} {med['dosage']}  |  Годен до: {med['expiration_date']}", font=("Segoe UI", 9), bg=BG_CARD, fg=TEXT_MUTED).pack(side=tk.LEFT)
 
             inputs = tk.Frame(content, bg=BG_CARD)
             inputs.pack(fill=tk.X, pady=(6, 0))
@@ -97,7 +97,7 @@ class OrderMedicinesDialog(tk.Toplevel):
             if not exp_str or len(exp_str) != 10 or exp_str.count(".") != 2:
                 errors.append(f"Некорректный срок годности: {name}")
             if not errors:
-                result.append({"old_id": m_id, "name": name, "unit": v["unit"], "new_quantity": qty_str, "new_expiration_date": exp_str})
+                result.append({"old_id": m_id, "name": name, "dosage": v["dosage"], "new_quantity": qty_str, "new_expiration_date": exp_str})
         if errors:
             messagebox.showwarning("Ошибка", "\n".join(errors[:10]), parent=self)
             return

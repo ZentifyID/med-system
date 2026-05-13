@@ -13,7 +13,9 @@ from app.database import (
     fetch_groups, fetch_group_by_id, insert_group, update_group, delete_group,
     fetch_medicines_for_table, fetch_medicine_by_id, insert_medicine, update_medicine, delete_medicine,
     fetch_appeals_for_table, fetch_appeal_by_id, insert_appeal, update_appeal, delete_appeal,
-    fetch_all_person_names,
+    fetch_all_person_names, fetch_person_details_by_name, get_next_appeal_number,
+    increment_first_digit_in_all_groups, check_and_auto_increment_groups,
+    get_student_count_by_group,
 )
 from app.validators import get_person_expiration_status, get_medicine_expiration_status
 from app.pages.employee_form_page import EmployeeFormPage
@@ -33,6 +35,7 @@ from app.pages.appeals_page import AppealsPage
 from app.pages.appeal_form_page import AppealFormPage
 from app.pages.appeal_view_page import AppealViewPage
 from app.pages.main_page import MainPage
+from app.pages.delete_group_dialog import DeleteGroupDialog
 from app.ui import (
     BG_SIDEBAR, BG_COLOR, TEXT_SIDEBAR, ACCENT, TEXT_COLOR, TEXT_MUTED,
     BORDER, SIDEBAR_BORDER,
@@ -89,6 +92,7 @@ class App:
         self._build_pages()
 
         self.show_main_page()
+        self.root.after(1000, self.auto_check_academic_year)
 
     def _load_icons(self) -> dict:
         import sys
@@ -183,7 +187,7 @@ class App:
         self.students_page = StudentsPage(c, on_add=self.show_add_student_page, on_groups=self.show_groups_page, on_back=self.show_main_page, on_select=self.show_student_view_page, on_delete=self.delete_student_action, on_filter_changed=self.on_filter_changed_students, search_icon=self.icons["search"])
         self.student_form_page = StudentFormPage(c, on_save=self.save_student, on_cancel=self.show_students_page)
         self.student_view_page = StudentViewPage(c, on_save=self.edit_student, on_delete=self.delete_student_action, on_cancel=self.show_students_page)
-        self.groups_page = GroupsPage(c, on_add=self.show_add_group_page, on_back=self.show_students_page, on_select=self.show_group_view_page, on_delete=self.delete_group_action)
+        self.groups_page = GroupsPage(c, on_add=self.show_add_group_page, on_back=self.show_students_page, on_select=self.show_group_view_page, on_increment=self.manual_increment_groups_action, on_delete=self.delete_group_action)
         self.group_form_page = GroupFormPage(c, on_save=self.save_group, on_cancel=self.show_groups_page)
         self.group_view_page = GroupViewPage(c, on_save=self.edit_group, on_delete=self.delete_group_action, on_cancel=self.show_groups_page)
 
@@ -192,8 +196,8 @@ class App:
         self.medicine_view_page = MedicineViewPage(c, on_save=self.edit_medicine, on_delete=self.delete_medicine_action, on_cancel=self.show_medicines_page)
 
         self.appeals_page = AppealsPage(c, on_add=self.show_add_appeal_page, on_back=self.show_main_page, on_select=self.show_appeal_view_page, on_delete=self.delete_appeal_action, on_filter_changed=self.on_filter_changed_appeals, search_icon=self.icons["search"])
-        self.appeal_form_page = AppealFormPage(c, on_save=self.save_appeal, on_cancel=self.show_appeals_page)
-        self.appeal_view_page = AppealViewPage(c, on_save=self.edit_appeal, on_delete=self.delete_appeal_action, on_cancel=self.show_appeals_page)
+        self.appeal_form_page = AppealFormPage(c, on_save=self.save_appeal, on_cancel=self.show_appeals_page, get_person_details_cb=fetch_person_details_by_name, get_next_num_cb=get_next_appeal_number)
+        self.appeal_view_page = AppealViewPage(c, on_save=self.edit_appeal, on_delete=self.delete_appeal_action, on_cancel=self.show_appeals_page, get_person_details_cb=fetch_person_details_by_name)
 
         self._all_pages = [
             self.main_page, self.employees_page, self.employee_form_page, self.employee_view_page,
@@ -239,6 +243,14 @@ class App:
                 if len(children) == 1:
                     self.current_page.table.selection_set(children[0])
                     self.current_page._open_selected()
+
+    def auto_check_academic_year(self) -> None:
+        try:
+            count = check_and_auto_increment_groups()
+            if count > 0:
+                show_toast(self.root, f"Начался новый учебный год! {count} групп переведены на следующий курс.", "info")
+        except Exception:
+            pass
 
     # ── Navigation ────────────────────────────────────────────────────────────
     def show_main_page(self) -> None:
@@ -423,15 +435,40 @@ class App:
         self.show_group_view_page(group_id)
 
     def delete_group_action(self, group_id: int) -> None:
-        try:
-            delete_group(group_id)
-        except sqlite3.IntegrityError:
-            show_toast(self.root, "Невозможно удалить группу — в ней есть студенты.", "error")
-            return
-        except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc))
-            return
-        self.show_groups_page()
+        group_data = fetch_group_by_id(group_id)
+        if not group_data: return
+
+        student_count = get_student_count_by_group(group_id)
+
+        if student_count > 0:
+            def confirm_cascade():
+                try:
+                    delete_group(group_id, cascade=True)
+                    show_toast(self.root, f"Группа '{group_data['name']}' и {student_count} чел. удалены.", "success")
+                    self.show_groups_page()
+                except Exception as e:
+                    messagebox.showerror("Ошибка", f"Не удалось удалить: {e}")
+            
+            DeleteGroupDialog(self.root, group_data["name"], student_count, confirm_cascade)
+        else:
+            if messagebox.askyesno("Удаление", f"Удалить группу '{group_data['name']}'?"):
+                try:
+                    delete_group(group_id)
+                    self.show_groups_page()
+                except Exception as e:
+                    messagebox.showerror("Ошибка", f"Не удалось удалить: {e}")
+
+    def manual_increment_groups_action(self) -> None:
+        if messagebox.askyesno("Перевод на следующий курс", "Это увеличит первую цифру в названиях всех групп (например, 11 -> 21). Продолжить?"):
+            try:
+                count = increment_first_digit_in_all_groups()
+                if count > 0:
+                    show_toast(self.root, f"Готово! Обновлено групп: {count}", "success")
+                    self.show_groups_page()
+                else:
+                    show_toast(self.root, "Нет подходящих групп для обновления.", "info")
+            except Exception as exc:
+                messagebox.showerror("Ошибка", f"Не удалось обновить группы: {exc}")
 
     # ── Medicines ─────────────────────────────────────────────────────────────
     def show_medicines_page(self) -> None:
@@ -463,7 +500,7 @@ class App:
         now = datetime.now()
         fourteen_days = now + timedelta(days=14)
         filtered = []
-        for id, name, unit, qty, exp_date_str in rows:
+        for id, name, dosage, qty, exp_date_str in rows:
             if self.search_query_medicines and self.search_query_medicines not in name.lower():
                 continue
             is_expired, is_expiring = get_medicine_expiration_status(exp_date_str)
@@ -474,7 +511,7 @@ class App:
                 continue
             if self.filter_status_medicines == "Мало (<= 5)" and not is_low_qty:
                 continue
-            filtered.append((id, name, qty, unit, exp_date_str, is_expiring, is_low_qty))
+            filtered.append((id, name, qty, dosage, exp_date_str, is_expiring, is_low_qty))
         self.medicines_page.set_rows(filtered)
 
     def save_medicine(self, data: dict) -> None:
@@ -506,10 +543,10 @@ class App:
         now = datetime.now()
         fourteen_days = now + timedelta(days=14)
         to_order = []
-        for id, name, unit, qty, exp_date_str in rows:
+        for id, name, dosage, qty, exp_date_str in rows:
             is_expired, is_expiring = get_medicine_expiration_status(exp_date_str)
             if qty <= 5 or is_expiring:
-                to_order.append({"id": id, "name": name, "unit": unit, "quantity": qty, "expiration_date": exp_date_str})
+                to_order.append({"id": id, "name": name, "dosage": dosage, "quantity": qty, "expiration_date": exp_date_str})
         if not to_order:
             show_toast(self.root, "Все лекарства в норме. Заказывать ничего не нужно.", "info")
             return
@@ -519,7 +556,7 @@ class App:
         try:
             for item in result:
                 delete_medicine(int(item["old_id"]))
-                insert_medicine({"name": item["name"], "unit": item["unit"], "quantity": item["new_quantity"], "expiration_date": item["new_expiration_date"]})
+                insert_medicine({"name": item["name"], "dosage": item["dosage"], "quantity": item["new_quantity"], "expiration_date": item["new_expiration_date"]})
         except sqlite3.DatabaseError as exc:
             messagebox.showerror("Ошибка базы данных", str(exc))
         self.refresh_medicines_table()
@@ -554,10 +591,10 @@ class App:
     def refresh_appeals_table(self) -> None:
         rows = fetch_appeals_for_table()
         filtered = []
-        for id, title, sender, created_at in rows:
-            if self.search_query_appeals and (self.search_query_appeals not in title.lower() and self.search_query_appeals not in sender.lower()):
+        for id, number, created_at, sender, complaints in rows:
+            if self.search_query_appeals and (self.search_query_appeals not in str(number) and self.search_query_appeals not in sender.lower()):
                 continue
-            filtered.append((id, title, sender, created_at))
+            filtered.append((id, number, created_at, sender, complaints))
         self.appeals_page.set_rows(filtered)
 
     def save_appeal(self, data: dict) -> None:

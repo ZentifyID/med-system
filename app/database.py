@@ -46,6 +46,43 @@ def init_db() -> None:
             )
             """
         )
+        # Migration: Remove passport fields from students if they exist
+        cursor = conn.execute("PRAGMA table_info(students)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if columns and "passport_series" in columns:
+            conn.execute(
+                """
+                CREATE TABLE students_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    group_id INTEGER NOT NULL,
+                    last_name TEXT NOT NULL,
+                    first_name TEXT NOT NULL,
+                    middle_name TEXT NOT NULL,
+                    birth_date TEXT NOT NULL,
+                    oms TEXT NOT NULL,
+                    address TEXT NOT NULL,
+                    sanminimum_date TEXT NOT NULL,
+                    medical_exam_date TEXT NOT NULL,
+                    fluorography_date TEXT NOT NULL,
+                    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE RESTRICT
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO students_new (
+                    id, group_id, last_name, first_name, middle_name, birth_date,
+                    oms, address, sanminimum_date, medical_exam_date, fluorography_date
+                )
+                SELECT 
+                    id, group_id, last_name, first_name, middle_name, birth_date,
+                    oms, address, sanminimum_date, medical_exam_date, fluorography_date
+                FROM students
+                """
+            )
+            conn.execute("DROP TABLE students")
+            conn.execute("ALTER TABLE students_new RENAME TO students")
+
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS students (
@@ -55,11 +92,6 @@ def init_db() -> None:
                 first_name TEXT NOT NULL,
                 middle_name TEXT NOT NULL,
                 birth_date TEXT NOT NULL,
-                passport_series TEXT NOT NULL,
-                passport_number TEXT NOT NULL,
-                passport_issued_by TEXT NOT NULL,
-                passport_issue_date TEXT NOT NULL,
-                passport_department_code TEXT NOT NULL,
                 oms TEXT NOT NULL,
                 address TEXT NOT NULL,
                 sanminimum_date TEXT NOT NULL,
@@ -69,25 +101,51 @@ def init_db() -> None:
             )
             """
         )
+        # Migration: Rename unit to dosage in medicines if exists
+        cursor = conn.execute("PRAGMA table_info(medicines)")
+        med_cols = [row[1] for row in cursor.fetchall()]
+        if med_cols and "unit" in med_cols and "dosage" not in med_cols:
+            conn.execute("ALTER TABLE medicines RENAME COLUMN unit TO dosage")
+
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS medicines (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                unit TEXT NOT NULL,
+                dosage TEXT NOT NULL,
                 quantity INTEGER NOT NULL,
                 expiration_date TEXT NOT NULL
             )
             """
         )
+        # Migration: Check appeals schema
+        cursor = conn.execute("PRAGMA table_info(appeals)")
+        cols = [row[1] for row in cursor.fetchall()]
+        if cols and "title" in cols:
+            # Radical change requested - drop and recreate
+            conn.execute("DROP TABLE appeals")
+
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS appeals (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                text TEXT NOT NULL,
+                number INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
                 sender TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                birth_date TEXT NOT NULL,
+                parent_phone TEXT NOT NULL,
+                group_name TEXT NOT NULL,
+                complaints TEXT NOT NULL,
+                diagnosis TEXT NOT NULL,
+                actions_recommendations TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS system_info (
+                key TEXT PRIMARY KEY,
+                value TEXT
             )
             """
         )
@@ -276,6 +334,15 @@ def fetch_group_by_id(group_id: int) -> dict[str, str] | None:
         conn.close()
 
 
+def get_student_count_by_group(group_id: int) -> int:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        count = conn.execute("SELECT COUNT(*) FROM students WHERE group_id = ?", (group_id,)).fetchone()[0]
+        return int(count)
+    finally:
+        conn.close()
+
+
 def insert_group(name: str) -> None:
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -294,10 +361,12 @@ def update_group(group_id: int, name: str) -> None:
         conn.close()
 
 
-def delete_group(group_id: int) -> None:
+def delete_group(group_id: int, cascade: bool = False) -> None:
     conn = sqlite3.connect(DB_PATH)
     try:
         conn.execute("PRAGMA foreign_keys = ON")
+        if cascade:
+            conn.execute("DELETE FROM students WHERE group_id = ?", (group_id,))
         conn.execute("DELETE FROM groups WHERE id = ?", (group_id,))
         conn.commit()
     finally:
@@ -345,11 +414,6 @@ def fetch_student_by_id(student_id: int) -> dict[str, str] | None:
             "first_name",
             "middle_name",
             "birth_date",
-            "passport_series",
-            "passport_number",
-            "passport_issued_by",
-            "passport_issue_date",
-            "passport_department_code",
             "oms",
             "address",
             "sanminimum_date",
@@ -370,16 +434,13 @@ def update_student(student_id: int, data: dict[str, str]) -> None:
             UPDATE students
             SET
                 group_id = ?, last_name = ?, first_name = ?, middle_name = ?, birth_date = ?,
-                passport_series = ?, passport_number = ?, passport_issued_by = ?, passport_issue_date = ?,
-                passport_department_code = ?, oms = ?, address = ?,
+                oms = ?, address = ?,
                 sanminimum_date = ?, medical_exam_date = ?, fluorography_date = ?
             WHERE id = ?
             """,
             (
                 data["group_id"], data["last_name"], data["first_name"], data["middle_name"],
-                data["birth_date"], data["passport_series"], data["passport_number"],
-                data["passport_issued_by"], data["passport_issue_date"], data["passport_department_code"],
-                data["oms"], data["address"], data["sanminimum_date"],
+                data["birth_date"], data["oms"], data["address"], data["sanminimum_date"],
                 data["medical_exam_date"], data["fluorography_date"],
                 student_id,
             ),
@@ -406,16 +467,13 @@ def insert_student(data: dict[str, str]) -> None:
             """
             INSERT INTO students (
                 group_id, last_name, first_name, middle_name, birth_date,
-                passport_series, passport_number, passport_issued_by, passport_issue_date,
-                passport_department_code, oms, address,
+                oms, address,
                 sanminimum_date, medical_exam_date, fluorography_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 data["group_id"], data["last_name"], data["first_name"], data["middle_name"],
-                data["birth_date"], data["passport_series"], data["passport_number"],
-                data["passport_issued_by"], data["passport_issue_date"], data["passport_department_code"],
-                data["oms"], data["address"], data["sanminimum_date"],
+                data["birth_date"], data["oms"], data["address"], data["sanminimum_date"],
                 data["medical_exam_date"], data["fluorography_date"],
             ),
         )
@@ -429,12 +487,12 @@ def fetch_medicines_for_table() -> list[tuple[int, str, str, int, str]]:
     try:
         rows = conn.execute(
             """
-            SELECT id, name, unit, quantity, expiration_date
+            SELECT id, name, dosage, quantity, expiration_date
             FROM medicines
             ORDER BY name
             """
         ).fetchall()
-        return [(int(id), str(name), str(unit), int(quantity), str(exp_date)) for id, name, unit, quantity, exp_date in rows]
+        return [(int(id), str(name), str(dosage), int(quantity), str(exp_date)) for id, name, dosage, quantity, exp_date in rows]
     finally:
         conn.close()
 
@@ -443,14 +501,14 @@ def fetch_medicine_by_id(medicine_id: int) -> dict[str, str] | None:
     conn = sqlite3.connect(DB_PATH)
     try:
         row = conn.execute(
-            "SELECT id, name, unit, quantity, expiration_date FROM medicines WHERE id = ?", (medicine_id,)
+            "SELECT id, name, dosage, quantity, expiration_date FROM medicines WHERE id = ?", (medicine_id,)
         ).fetchone()
         if not row:
             return None
         return {
             "id": str(row[0]),
             "name": str(row[1]),
-            "unit": str(row[2]),
+            "dosage": str(row[2]),
             "quantity": str(row[3]),
             "expiration_date": str(row[4]),
         }
@@ -463,10 +521,10 @@ def insert_medicine(data: dict[str, str]) -> None:
     try:
         conn.execute(
             """
-            INSERT INTO medicines (name, unit, quantity, expiration_date)
+            INSERT INTO medicines (name, dosage, quantity, expiration_date)
             VALUES (?, ?, ?, ?)
             """,
-            (data["name"], data["unit"], int(data["quantity"]), data["expiration_date"]),
+            (data["name"], data["dosage"], int(data["quantity"]), data["expiration_date"]),
         )
         conn.commit()
     finally:
@@ -479,10 +537,10 @@ def update_medicine(medicine_id: int, data: dict[str, str]) -> None:
         conn.execute(
             """
             UPDATE medicines
-            SET name = ?, unit = ?, quantity = ?, expiration_date = ?
+            SET name = ?, dosage = ?, quantity = ?, expiration_date = ?
             WHERE id = ?
             """,
-            (data["name"], data["unit"], int(data["quantity"]), data["expiration_date"], medicine_id),
+            (data["name"], data["dosage"], int(data["quantity"]), data["expiration_date"], medicine_id),
         )
         conn.commit()
     finally:
@@ -517,6 +575,36 @@ def fetch_all_person_names() -> list[str]:
         conn.close()
 
 
+def fetch_person_details_by_name(full_name: str) -> dict | None:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        # Normalize name (remove extra spaces)
+        full_name = " ".join(full_name.split())
+        
+        # Search in students
+        row = conn.execute("""
+            SELECT s.birth_date, g.name 
+            FROM students s 
+            JOIN groups g ON s.group_id = g.id
+            WHERE (s.last_name || ' ' || s.first_name || ' ' || s.middle_name) = ?
+        """, (full_name,)).fetchone()
+        if row:
+            return {"birth_date": row[0], "group_name": row[1]}
+        
+        # Search in employees
+        row = conn.execute("""
+            SELECT birth_date, affiliation
+            FROM employees
+            WHERE (last_name || ' ' || first_name || ' ' || middle_name) = ?
+        """, (full_name,)).fetchone()
+        if row:
+            return {"birth_date": row[0], "group_name": row[1]}
+            
+        return None
+    finally:
+        conn.close()
+
+
 def _format_initials(full_name: str) -> str:
     parts = full_name.split()
     if not parts:
@@ -529,17 +617,29 @@ def _format_initials(full_name: str) -> str:
         return f"{parts[0]} {parts[1][0]}. {parts[2][0]}."
 
 
-def fetch_appeals_for_table() -> list[tuple[int, str, str, str]]:
+def fetch_appeals_for_table() -> list[tuple[int, int, str, str, str]]:
     conn = sqlite3.connect(DB_PATH)
     try:
         rows = conn.execute(
             """
-            SELECT id, title, sender, created_at
+            SELECT id, number, created_at, sender, complaints
             FROM appeals
-            ORDER BY id DESC
+            ORDER BY number DESC
             """
         ).fetchall()
-        return [(int(id), str(title), _format_initials(str(sender)), str(created_at)) for id, title, sender, created_at in rows]
+        # id, number, date, sender, complaints
+        return [(int(id), int(num), str(date), _format_initials(str(sender)), str(compl)) for id, num, date, sender, compl in rows]
+    finally:
+        conn.close()
+
+
+def get_next_appeal_number() -> int:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        row = conn.execute("SELECT MAX(number) FROM appeals").fetchone()
+        if row and row[0] is not None:
+            return int(row[0]) + 1
+        return 1
     finally:
         conn.close()
 
@@ -548,32 +648,38 @@ def fetch_appeal_by_id(appeal_id: int) -> dict[str, str] | None:
     conn = sqlite3.connect(DB_PATH)
     try:
         row = conn.execute(
-            "SELECT id, title, text, sender, created_at FROM appeals WHERE id = ?", (appeal_id,)
+            """
+            SELECT id, number, created_at, sender, birth_date, parent_phone, group_name, complaints, diagnosis, actions_recommendations 
+            FROM appeals WHERE id = ?
+            """, (appeal_id,)
         ).fetchone()
         if not row:
             return None
-        return {
-            "id": str(row[0]),
-            "title": str(row[1]),
-            "text": str(row[2]),
-            "sender": str(row[3]),
-            "created_at": str(row[4]),
-        }
+        keys = ["id", "number", "created_at", "sender", "birth_date", "parent_phone", "group_name", "complaints", "diagnosis", "actions_recommendations"]
+        return {keys[i]: str(row[i]) for i in range(len(keys))}
     finally:
         conn.close()
 
 
 def insert_appeal(data: dict[str, str]) -> None:
-    from datetime import datetime
     conn = sqlite3.connect(DB_PATH)
     try:
-        created_at = datetime.now().strftime("%d.%m.%Y")
         conn.execute(
             """
-            INSERT INTO appeals (title, text, sender, created_at)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO appeals (number, created_at, sender, birth_date, parent_phone, group_name, complaints, diagnosis, actions_recommendations)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (data["title"], data["text"], data["sender"], created_at),
+            (
+                int(data["number"]), 
+                data["created_at"], 
+                data["sender"], 
+                data["birth_date"], 
+                data["parent_phone"], 
+                data["group_name"], 
+                data["complaints"], 
+                data["diagnosis"], 
+                data["actions_recommendations"]
+            ),
         )
         conn.commit()
     finally:
@@ -586,10 +692,21 @@ def update_appeal(appeal_id: int, data: dict[str, str]) -> None:
         conn.execute(
             """
             UPDATE appeals
-            SET title = ?, text = ?, sender = ?
+            SET number = ?, created_at = ?, sender = ?, birth_date = ?, parent_phone = ?, group_name = ?, complaints = ?, diagnosis = ?, actions_recommendations = ?
             WHERE id = ?
             """,
-            (data["title"], data["text"], data["sender"], appeal_id),
+            (
+                int(data["number"]), 
+                data["created_at"], 
+                data["sender"], 
+                data["birth_date"], 
+                data["parent_phone"], 
+                data["group_name"], 
+                data["complaints"], 
+                data["diagnosis"], 
+                data["actions_recommendations"],
+                appeal_id
+            ),
         )
         conn.commit()
     finally:
@@ -601,6 +718,61 @@ def delete_appeal(appeal_id: int) -> None:
     try:
         conn.execute("DELETE FROM appeals WHERE id = ?", (appeal_id,))
         conn.commit()
+    finally:
+        conn.close()
+
+
+def increment_first_digit_in_all_groups() -> int:
+    import sqlite3
+    import re
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        rows = conn.execute("SELECT id, name FROM groups").fetchall()
+        to_update = []
+        for gid, name in rows:
+            if name and name[0].isdigit():
+                first_digit = int(name[0])
+                new_name = str(first_digit + 1) + name[1:]
+                if new_name != name:
+                    to_update.append((gid, name, new_name, first_digit))
+        
+        # Sort by first digit descending to avoid UNIQUE constraint conflicts
+        to_update.sort(key=lambda x: x[3], reverse=True)
+        
+        count = 0
+        for gid, _, new_name, _ in to_update:
+            try:
+                conn.execute("UPDATE groups SET name = ? WHERE id = ?", (new_name, gid))
+                count += 1
+            except sqlite3.IntegrityError:
+                pass
+        conn.commit()
+        return count
+    finally:
+        conn.close()
+
+
+def check_and_auto_increment_groups() -> int:
+    from datetime import datetime
+    now = datetime.now()
+    # Threshold: August 15th
+    if now.month < 8 or (now.month == 8 and now.day < 15):
+        return 0
+    
+    current_year = str(now.year)
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS system_info (key TEXT PRIMARY KEY, value TEXT)")
+        row = conn.execute("SELECT value FROM system_info WHERE key = 'last_group_increment_year'").fetchone()
+        last_year = row[0] if row else None
+        
+        if last_year == current_year:
+            return 0
+        
+        count = increment_first_digit_in_all_groups()
+        conn.execute("INSERT OR REPLACE INTO system_info (key, value) VALUES ('last_group_increment_year', ?)", (current_year,))
+        conn.commit()
+        return count
     finally:
         conn.close()
 

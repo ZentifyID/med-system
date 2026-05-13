@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
-from typing import Callable
+from typing import Callable, Any
 
 import customtkinter as ctk
 
@@ -12,18 +12,28 @@ from app.ui import (
 
 
 class AppealViewPage(tk.Frame):
-    def __init__(self, master, on_save: Callable[[int, dict], None], on_delete: Callable[[int], None], on_cancel: Callable[[], None]) -> None:
+    def __init__(self, master, on_save: Callable[[int, dict], None], on_delete: Callable[[int], None], 
+                 on_cancel: Callable[[], None], get_person_details_cb: Callable[[str], dict | None]) -> None:
         super().__init__(master, bg=BG_COLOR)
         self._on_save = on_save
         self._on_delete = on_delete
         self._on_cancel = on_cancel
-        self.title_var = tk.StringVar()
-        self.sender_var = tk.StringVar()
-        self.created_at_var = tk.StringVar()
-        self.original_data: dict | None = None
+        self._get_person_details = get_person_details_cb
+        
         self.appeal_id: int | None = None
+        self.original_data: dict | None = None
         self.is_edit_mode = False
         self.senders: list[str] = []
+
+        self.form_vars: dict[str, tk.StringVar] = {
+            "number": tk.StringVar(),
+            "created_at": tk.StringVar(),
+            "sender": tk.StringVar(),
+            "birth_date": tk.StringVar(),
+            "group_name": tk.StringVar(),
+            "parent_phone": tk.StringVar(),
+            "diagnosis": tk.StringVar(),
+        }
 
         # Header
         hdr = tk.Frame(self, bg=BG_COLOR)
@@ -35,7 +45,7 @@ class AppealViewPage(tk.Frame):
         tk.Frame(self, bg=BORDER, height=1).pack(fill=tk.X, padx=36, pady=(16, 24))
 
         # Card Container
-        card = ctk.CTkFrame(
+        card = ctk.CTkScrollableFrame(
             self,
             fg_color=BG_CARD,
             border_color=BORDER,
@@ -44,54 +54,53 @@ class AppealViewPage(tk.Frame):
         )
         card.pack(fill=tk.BOTH, expand=True, padx=36, pady=(0, 16))
         
-        self.form_container = tk.Frame(card, bg=BG_CARD)
-        self.form_container.pack(fill=tk.BOTH, expand=True, padx=24, pady=24)
+        self.inner = tk.Frame(card, bg=BG_CARD)
+        self.inner.pack(fill=tk.X, padx=24, pady=24)
+        self.inner.grid_columnconfigure(0, weight=1)
+        self.inner.grid_columnconfigure(1, weight=1)
 
-        # Heading label
-        tk.Label(self.form_container, text="Заголовок", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
-        self.title_label = tk.Label(self.form_container, textvariable=self.title_var, font=(FONT_FAMILY, 18, "bold"), bg=BG_CARD, fg=TEXT_COLOR, anchor="w")
-        self.title_label.pack(fill=tk.X, pady=(0, 16))
+        self.form_entries: dict[str, ctk.CTkEntry] = {}
+        self.form_labels: dict[str, tk.Label] = {}
+
+        # ── Row 0: Number & Date ────────────────────────────────────────────────
+        self._add_field(self.inner, 0, 0, "Номер обращения", "number")
+        self._add_field(self.inner, 0, 1, "Дата обращения", "created_at")
+
+        # ── Row 1: Sender (Combo) ───────────────────────────────────────────────
+        tk.Label(self.inner, text="ФИО пациента", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(row=2, column=0, columnspan=2, sticky="ew", pady=(16, 4))
         
-        self.title_entry = ctk.CTkEntry(
-            self.form_container, textvariable=self.title_var,
-            font=(FONT_FAMILY, 14),
-            fg_color=ENTRY_BG, text_color=ENTRY_FG,
-            border_color=ENTRY_BORDER, corner_radius=CORNER_RADIUS, height=40,
-        )
+        self.sender_label = tk.Label(self.inner, textvariable=self.form_vars["sender"], font=(FONT_FAMILY, 15, "bold"), bg=BG_CARD, fg=TEXT_COLOR, anchor="w")
+        self.sender_label.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 8))
 
-        # Info row (view mode)
-        self.info_frame = tk.Frame(self.form_container, bg=BG_CARD)
-        self.info_frame.pack(fill=tk.X, pady=(0, 16))
-        tk.Label(self.info_frame, text="От кого:", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED).pack(side=tk.LEFT)
-        self.sender_label = tk.Label(self.info_frame, textvariable=self.sender_var, font=(FONT_FAMILY, 11), bg=BG_CARD, fg=TEXT_COLOR)
-        self.sender_label.pack(side=tk.LEFT, padx=(6, 20))
-        tk.Label(self.info_frame, text="Дата:", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED).pack(side=tk.LEFT)
-        tk.Label(self.info_frame, textvariable=self.created_at_var, font=(FONT_FAMILY, 11), bg=BG_CARD, fg=TEXT_COLOR).pack(side=tk.LEFT, padx=(6, 0))
-
-        # Sender edit mode
-        self.sender_edit_frame = tk.Frame(self.form_container, bg=BG_CARD)
-        tk.Label(self.sender_edit_frame, text="От кого", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
         self.sender_combo = ctk.CTkComboBox(
-            self.sender_edit_frame, variable=self.sender_var, state="readonly", font=(FONT_FAMILY, 14), dropdown_font=(FONT_FAMILY, 12),
+            self.inner, variable=self.form_vars["sender"], state="readonly", font=(FONT_FAMILY, 14), dropdown_font=(FONT_FAMILY, 12),
             fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER,
-            button_color=ENTRY_BORDER, button_hover_color=ACCENT, corner_radius=CORNER_RADIUS, height=40
+            button_color=ENTRY_BORDER, button_hover_color=ACCENT, corner_radius=CORNER_RADIUS, height=40,
+            command=self._on_sender_selected
         )
-        self.sender_combo.pack(fill=tk.X, pady=(0, 16))
+        # Combo is hidden initially
 
-        # Text
-        tk.Label(self.form_container, text="Текст обращения", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").pack(fill=tk.X, pady=(0, 3))
-        
-        self.text_widget = ctk.CTkTextbox(
-            self.form_container, 
-            font=(FONT_FAMILY, 14), 
-            fg_color=ENTRY_BG, 
-            text_color=ENTRY_FG,
-            border_color=ENTRY_BORDER,
-            border_width=1,
-            corner_radius=CORNER_RADIUS,
-            height=200,
-        )
-        self.text_widget.pack(fill=tk.BOTH, expand=True)
+        # ── Row 4, 5: Birth Date & Group Name (Read-only) ─────────────────────
+        self._add_field(self.inner, 2, 0, "Дата рождения (авто)", "birth_date", readonly_always=True)
+        self._add_field(self.inner, 2, 1, "Класс/Группа (авто)", "group_name", readonly_always=True)
+
+        # ── Row 6, 7: Parent Phone ────────────────────────────────────────────
+        self._add_field(self.inner, 3, 0, "Телефон родителей", "parent_phone", columnspan=2)
+
+        # ── Row 8, 9: Complaints ──────────────────────────────────────────────
+        tk.Label(self.inner, text="Жалобы", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(row=8, column=0, columnspan=2, sticky="ew", pady=(16, 4))
+        self.complaints_text = ctk.CTkTextbox(self.inner, font=(FONT_FAMILY, 13), fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER, border_width=1, corner_radius=CORNER_RADIUS, height=100)
+        self.complaints_text.grid(row=9, column=0, columnspan=2, sticky="ew")
+        self.complaints_text.configure(state="disabled")
+
+        # ── Row 10, 11: Diagnosis ─────────────────────────────────────────────
+        self._add_field(self.inner, 5, 0, "Предварительный диагноз", "diagnosis", columnspan=2)
+
+        # ── Row 12, 13: Recommendations ────────────────────────────────────────
+        tk.Label(self.inner, text="Оказанная помощь, рекомендации", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(row=12, column=0, columnspan=2, sticky="ew", pady=(16, 4))
+        self.recommendations_text = ctk.CTkTextbox(self.inner, font=(FONT_FAMILY, 13), fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER, border_width=1, corner_radius=CORNER_RADIUS, height=100)
+        self.recommendations_text.grid(row=13, column=0, columnspan=2, sticky="ew")
+        self.recommendations_text.configure(state="disabled")
 
         # Actions
         self.actions = tk.Frame(self, bg=BG_COLOR)
@@ -105,6 +114,26 @@ class AppealViewPage(tk.Frame):
 
         self._show_view_actions()
 
+    def _add_field(self, parent, row, col, label, var_key, readonly_always=False, columnspan=1):
+        tk.Label(parent, text=label, font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(row=row*2, column=col, columnspan=columnspan, sticky="ew", pady=(16, 4), padx=(0 if col==0 else 10, 0))
+        
+        # View mode label
+        lbl = tk.Label(parent, textvariable=self.form_vars[var_key], font=(FONT_FAMILY, 13), bg=BG_CARD, fg=TEXT_COLOR, anchor="w")
+        lbl.grid(row=row*2+1, column=col, columnspan=columnspan, sticky="ew", pady=(0, 8), padx=(0 if col==0 else 10, 0))
+        self.form_labels[var_key] = lbl
+        
+        # Edit mode entry
+        entry = ctk.CTkEntry(
+            parent, textvariable=self.form_vars[var_key],
+            font=(FONT_FAMILY, 14),
+            fg_color="#F3F4F6" if readonly_always else ENTRY_BG, 
+            text_color=TEXT_MUTED if readonly_always else ENTRY_FG,
+            border_color=ENTRY_BORDER, corner_radius=CORNER_RADIUS, height=40,
+            state="readonly" if readonly_always else "normal"
+        )
+        self.form_entries[var_key] = entry
+        # Entries are hidden initially
+
     def _show_view_actions(self):
         self.edit_button.pack(side=tk.LEFT)
         self.delete_button.pack(side=tk.LEFT, padx=(12, 0))
@@ -117,14 +146,21 @@ class AppealViewPage(tk.Frame):
     def set_appeal_data(self, data: dict) -> None:
         self.appeal_id = int(data["id"])
         self.original_data = data.copy()
-        self.page_title.config(text=f"Обращение: {data.get('title', '')}")
-        self.title_var.set(data.get("title", ""))
-        self.sender_var.set(data.get("sender", ""))
-        self.created_at_var.set(data.get("created_at", ""))
-        self.text_widget.configure(state="normal")
-        self.text_widget.delete("1.0", tk.END)
-        self.text_widget.insert(tk.END, data.get("text", ""))
-        self.text_widget.configure(state="disabled")
+        self.page_title.config(text=f"Обращение №{data.get('number', '')}")
+        
+        for k, v in self.form_vars.items():
+            v.set(data.get(k, ""))
+            
+        self.complaints_text.configure(state="normal")
+        self.complaints_text.delete("1.0", tk.END)
+        self.complaints_text.insert(tk.END, data.get("complaints", ""))
+        self.complaints_text.configure(state="disabled")
+
+        self.recommendations_text.configure(state="normal")
+        self.recommendations_text.delete("1.0", tk.END)
+        self.recommendations_text.insert(tk.END, data.get("actions_recommendations", ""))
+        self.recommendations_text.configure(state="disabled")
+        
         if self.is_edit_mode: self._toggle_edit_mode()
 
     def _toggle_edit_mode(self) -> None:
@@ -132,30 +168,41 @@ class AppealViewPage(tk.Frame):
         if self.is_edit_mode:
             self.edit_button.pack_forget(); self.delete_button.pack_forget(); self.back_button.pack_forget()
             self.save_button.pack(side=tk.RIGHT); self.cancel_button.pack(side=tk.RIGHT, padx=(0, 12))
-            self.title_label.pack_forget()
-            self.title_entry.pack(fill=tk.X, pady=(0, 16), before=self.info_frame)
-            self.info_frame.pack_forget()
-            self.sender_edit_frame.pack(fill=tk.X, pady=(0, 16), before=self.text_widget)
-            self.text_widget.configure(state="normal")
-            if self.sender_var.get() not in self.senders:
-                self.sender_combo.configure(values=self.senders + [self.sender_var.get()])
+            
+            # Switch labels to entries
+            for k, lbl in self.form_labels.items():
+                lbl.grid_remove()
+                self.form_entries[k].grid()
+            
+            self.sender_label.grid_remove()
+            self.sender_combo.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+            
+            self.complaints_text.configure(state="normal")
+            self.recommendations_text.configure(state="normal")
         else:
             self.save_button.pack_forget(); self.cancel_button.pack_forget()
             self._show_view_actions()
-            self.title_entry.pack_forget()
-            self.title_label.pack(fill=tk.X, pady=(0, 16), before=self.sender_edit_frame)
-            self.sender_edit_frame.pack_forget()
-            self.info_frame.pack(fill=tk.X, pady=(0, 16), before=self.text_widget)
-            self.text_widget.configure(state="disabled")
+            
+            # Switch entries to labels
+            for k, entry in self.form_entries.items():
+                entry.grid_remove()
+                self.form_labels[k].grid()
+            
+            self.sender_combo.grid_remove()
+            self.sender_label.grid()
+            
+            self.complaints_text.configure(state="disabled")
+            self.recommendations_text.configure(state="disabled")
+
+    def _on_sender_selected(self, name: str) -> None:
+        details = self._get_person_details(name)
+        if details:
+            self.form_vars["birth_date"].set(details.get("birth_date", ""))
+            self.form_vars["group_name"].set(details.get("group_name", ""))
 
     def _cancel_edit(self) -> None:
         if self.original_data:
-            self.title_var.set(self.original_data.get("title", ""))
-            self.sender_var.set(self.original_data.get("sender", ""))
-            self.text_widget.configure(state="normal")
-            self.text_widget.delete("1.0", tk.END)
-            self.text_widget.insert(tk.END, self.original_data.get("text", ""))
-            self.text_widget.configure(state="disabled")
+            self.set_appeal_data(self.original_data)
         self._toggle_edit_mode()
 
     def _delete(self) -> None:
@@ -164,12 +211,15 @@ class AppealViewPage(tk.Frame):
 
     def _submit(self) -> None:
         if not self.appeal_id: return
-        data = {"title": self.title_var.get().strip(), "sender": self.sender_var.get().strip(), "text": self.text_widget.get("1.0", tk.END).strip()}
+        data = {k: v.get().strip() for k, v in self.form_vars.items()}
+        data["complaints"] = self.complaints_text.get("1.0", tk.END).strip()
+        data["actions_recommendations"] = self.recommendations_text.get("1.0", tk.END).strip()
+        
         errors = []
-        if not data["title"]: errors.append("Введите заголовок.")
-        if not data["sender"]: errors.append("Выберите отправителя.")
-        if not data["text"]: errors.append("Введите текст.")
+        if not data["number"]: errors.append("Введите номер обращения.")
+        if not data["sender"]: errors.append("Выберите пациента.")
         if errors:
             messagebox.showwarning("Ошибка", "\n".join(errors))
             return
+            
         self._on_save(self.appeal_id, data)

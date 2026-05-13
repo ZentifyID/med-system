@@ -22,10 +22,10 @@ class AppealsPage(tk.Frame):
         self.search_var.trace_add("write", self._trigger_filter)
         _make_search_bar(self, self.search_var, None, None, self._trigger_filter, search_icon=search_icon)
 
-        _, self.table = _make_table_card(self, ("title", "sender", "created_at"),
-            {"title": "Заголовок", "sender": "От кого", "created_at": "Дата"},
-            {"title": 460, "sender": 220, "created_at": 140},
-            {"title": tk.W, "sender": tk.W, "created_at": tk.CENTER})
+        _, self.table = _make_table_card(self, ("number", "created_at", "sender", "complaints"),
+            {"number": "№", "created_at": "Дата", "sender": "ФИО", "complaints": "Жалобы"},
+            {"number": 60, "created_at": 100, "sender": 250, "complaints": 350},
+            {"number": tk.CENTER, "created_at": tk.CENTER, "sender": tk.W, "complaints": tk.W})
         self.table.bind("<Double-1>", lambda e: self._open_selected())
 
         _make_action_bar(self, [("Открыть", True, self._open_selected), ("Назад", False, on_back)])
@@ -33,9 +33,9 @@ class AppealsPage(tk.Frame):
     def set_rows(self, rows):
         for item in self.table.get_children():
             self.table.delete(item)
-        for i, (m_id, title, sender, created_at) in enumerate(rows):
+        for i, (m_id, number, created_at, sender, complaints) in enumerate(rows):
             tag = "odd" if i % 2 == 0 else "even"
-            self.table.insert("", tk.END, iid=str(m_id), values=(title, sender, created_at), tags=(tag,))
+            self.table.insert("", tk.END, iid=str(m_id), values=(number, created_at, sender, complaints), tags=(tag,))
 
     def _open_selected(self):
         sel = self.table.selection()

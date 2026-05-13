@@ -130,6 +130,11 @@ def validate_employee_payload(payload: dict[str, str]) -> list[str]:
 
 STUDENT_FIELD_LABELS = FIELD_LABELS.copy()
 del STUDENT_FIELD_LABELS["affiliation"]
+del STUDENT_FIELD_LABELS["passport_series"]
+del STUDENT_FIELD_LABELS["passport_number"]
+del STUDENT_FIELD_LABELS["passport_issued_by"]
+del STUDENT_FIELD_LABELS["passport_issue_date"]
+del STUDENT_FIELD_LABELS["passport_department_code"]
 STUDENT_FIELD_LABELS["group_id"] = "Группа"
 
 def validate_student_payload(payload: dict[str, str]) -> list[str]:

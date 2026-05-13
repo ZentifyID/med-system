@@ -23,10 +23,10 @@ class MedicinesPage(tk.Frame):
         self.filter_var = tk.StringVar(value="Все лекарства")
         _make_search_bar(self, self.search_var, self.filter_var, ["Все лекарства", "Мало (<= 5)", "Истекают (2 недели)", "Просроченные"], self._trigger_filter, search_icon=search_icon)
 
-        _, self.table = _make_table_card(self, ("name", "quantity", "unit", "expiration_date"),
-            {"name": "Название", "quantity": "Кол-во", "unit": "Ед. изм.", "expiration_date": "Срок годности"},
-            {"name": 380, "quantity": 90, "unit": 130, "expiration_date": 160},
-            {"name": tk.W, "quantity": tk.CENTER, "unit": tk.W, "expiration_date": tk.CENTER})
+        _, self.table = _make_table_card(self, ("name", "quantity", "dosage", "expiration_date"),
+            {"name": "Название", "quantity": "Кол-во", "dosage": "Дозировка", "expiration_date": "Срок годности"},
+            {"name": 380, "quantity": 90, "dosage": 130, "expiration_date": 160},
+            {"name": tk.W, "quantity": tk.CENTER, "dosage": tk.W, "expiration_date": tk.CENTER})
 
         self.table.tag_configure("expiring", foreground="#D97706")
         self.table.tag_configure("low_qty", foreground="#DC2626")
@@ -39,7 +39,7 @@ class MedicinesPage(tk.Frame):
         for item in self.table.get_children():
             self.table.delete(item)
         for i, row in enumerate(rows):
-            m_id, name, qty, unit, exp_date, is_expiring, is_low_qty = row
+            m_id, name, qty, dosage, exp_date, is_expiring, is_low_qty = row
             base_tag = "odd" if i % 2 == 0 else "even"
             if is_expiring and is_low_qty:
                 color_tag = "expiring_low"
@@ -49,7 +49,7 @@ class MedicinesPage(tk.Frame):
                 color_tag = "low_qty"
             else:
                 color_tag = base_tag
-            self.table.insert("", tk.END, iid=str(m_id), values=(name, qty, unit, exp_date), tags=(color_tag,))
+            self.table.insert("", tk.END, iid=str(m_id), values=(name, qty, dosage, exp_date), tags=(color_tag,))
 
     def _open_selected(self):
         sel = self.table.selection()

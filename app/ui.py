@@ -89,6 +89,7 @@ class FlatButton(ctk.CTkFrame):
             cursor="hand2"
         )
         self.pack_propagate(False)
+        self._state = "normal"
 
         # Label for text
         self.label = ctk.CTkLabel(
@@ -107,14 +108,25 @@ class FlatButton(ctk.CTkFrame):
             w.bind("<Leave>", lambda e: self._on_leave())
 
     def _on_click(self):
-        if self.command:
+        if self._state == "normal" and self.command:
             self.command()
 
     def _on_enter(self):
-        self.configure(fg_color=self.hover_bg)
+        if self._state == "normal":
+            self.configure(fg_color=self.hover_bg)
 
     def _on_leave(self):
-        self.configure(fg_color=self.default_bg)
+        if self._state == "normal":
+            self.configure(fg_color=self.default_bg)
+
+    def set_state(self, state: str):
+        self._state = state
+        if state == "disabled":
+            self.configure(fg_color="#E5E7EB", cursor="")
+            self.label.configure(text_color="#9CA3AF")
+        else:
+            self.configure(fg_color=self.default_bg, cursor="hand2")
+            self.label.configure(text_color=self.text_col)
 
     def configure_text(self, text: str):
         self.label.configure(text=text)
