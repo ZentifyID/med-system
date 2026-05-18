@@ -13,7 +13,8 @@ from app.database import (
     fetch_groups, fetch_group_by_id, insert_group, update_group, delete_group,
     fetch_medicines_for_table, fetch_medicine_by_id, insert_medicine, update_medicine, delete_medicine,
     fetch_appeals_for_table, fetch_appeal_by_id, insert_appeal, update_appeal, delete_appeal,
-    fetch_all_person_names, fetch_person_details_by_name, get_next_appeal_number,
+    fetch_all_person_names, fetch_person_details_by_name, get_next_appeal_number, search_icd_codes,
+    fetch_all_icd_codes, insert_icd_code, update_icd_code, delete_icd_code,
     increment_first_digit_in_all_groups, check_and_auto_increment_groups,
     get_student_count_by_group,
 )
@@ -195,9 +196,13 @@ class App:
         self.medicine_form_page = MedicineFormPage(c, on_save=self.save_medicine, on_cancel=self.show_medicines_page)
         self.medicine_view_page = MedicineViewPage(c, on_save=self.edit_medicine, on_delete=self.delete_medicine_action, on_cancel=self.show_medicines_page)
 
-        self.appeals_page = AppealsPage(c, on_add=self.show_add_appeal_page, on_back=self.show_main_page, on_select=self.show_appeal_view_page, on_delete=self.delete_appeal_action, on_filter_changed=self.on_filter_changed_appeals, search_icon=self.icons["search"])
-        self.appeal_form_page = AppealFormPage(c, on_save=self.save_appeal, on_cancel=self.show_appeals_page, get_person_details_cb=fetch_person_details_by_name, get_next_num_cb=get_next_appeal_number)
-        self.appeal_view_page = AppealViewPage(c, on_save=self.edit_appeal, on_delete=self.delete_appeal_action, on_cancel=self.show_appeals_page, get_person_details_cb=fetch_person_details_by_name)
+        self.appeals_page = AppealsPage(
+            c, on_add=self.show_add_appeal_page, on_back=self.show_main_page, on_select=self.show_appeal_view_page,
+            on_delete=self.delete_appeal_action, on_filter_changed=self.on_filter_changed_appeals, search_icon=self.icons["search"],
+            fetch_icd_cb=fetch_all_icd_codes, insert_icd_cb=insert_icd_code, update_icd_cb=update_icd_code, delete_icd_cb=delete_icd_code
+        )
+        self.appeal_form_page = AppealFormPage(c, on_save=self.save_appeal, on_cancel=self.show_appeals_page, get_person_details_cb=fetch_person_details_by_name, get_next_num_cb=get_next_appeal_number, search_icd_cb=search_icd_codes)
+        self.appeal_view_page = AppealViewPage(c, on_save=self.edit_appeal, on_delete=self.delete_appeal_action, on_cancel=self.show_appeals_page, get_person_details_cb=fetch_person_details_by_name, search_icd_cb=search_icd_codes)
 
         self._all_pages = [
             self.main_page, self.employees_page, self.employee_form_page, self.employee_view_page,

@@ -10,13 +10,19 @@ from app.pages.shared_ui import (
 
 
 class AppealsPage(tk.Frame):
-    def __init__(self, master, on_add, on_back, on_select, on_delete=None, on_filter_changed=None, search_icon=None):
+    def __init__(self, master, on_add, on_back, on_select, on_delete=None, on_filter_changed=None, search_icon=None,
+                 fetch_icd_cb=None, insert_icd_cb=None, update_icd_cb=None, delete_icd_cb=None):
         super().__init__(master, bg=BG_COLOR)
         self.on_select = on_select
         self.on_delete_cb = on_delete
         self.on_filter_changed = on_filter_changed
+        self.search_icon = search_icon
+        self.fetch_icd_cb = fetch_icd_cb
+        self.insert_icd_cb = insert_icd_cb
+        self.update_icd_cb = update_icd_cb
+        self.delete_icd_cb = delete_icd_cb
 
-        _make_section_header(self, "Обращения", "+ Добавить", on_add)
+        _make_section_header(self, "Обращения", "+ Добавить", on_add, "Справочник МКБ", self._open_icd_reference)
 
         self.search_var = tk.StringVar()
         self.search_var.trace_add("write", self._trigger_filter)
@@ -55,3 +61,14 @@ class AppealsPage(tk.Frame):
         self.update_idletasks()
         self.on_filter_changed(self.search_var.get())
         self.config(cursor="")
+
+    def _open_icd_reference(self):
+        from app.pages.icd_reference_dialog import ICDReferenceDialog
+        ICDReferenceDialog(
+            self.winfo_toplevel(),
+            fetch_cb=self.fetch_icd_cb,
+            insert_cb=self.insert_icd_cb,
+            update_cb=self.update_icd_cb,
+            delete_cb=self.delete_icd_cb,
+            search_icon=self.search_icon
+        )

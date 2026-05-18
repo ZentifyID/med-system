@@ -506,3 +506,128 @@ def sort_treeview_column(tv: ttk.Treeview, col: str, reverse: bool) -> None:
         tv.item(k, tags=tuple(base_tags))
 
     tv.heading(col, command=lambda _col=col: sort_treeview_column(tv, _col, not reverse))
+
+
+class ICDAutocomplete:
+    def __init__(self, entry: ctk.CTkEntry, var: tk.StringVar, search_callback):
+        self.entry = entry
+        self.var = var
+        self.search_callback = search_callback
+        self.popup = None
+        self.listbox = None
+        self._after_id = None
+        
+        # Bind keys on both ctk wrapper and underlying _entry
+        self.entry.bind("<KeyRelease>", self._on_key_release)
+        self.entry.bind("<FocusOut>", self._on_focus_out)
+        self.entry.bind("<FocusIn>", self._on_key_release)
+        self.entry.bind("<Down>", self._on_arrow_down)
+        
+        if hasattr(self.entry, "_entry"):
+            self.entry._entry.bind("<KeyRelease>", self._on_key_release)
+            self.entry._entry.bind("<FocusOut>", self._on_focus_out)
+            self.entry._entry.bind("<FocusIn>", self._on_key_release)
+            self.entry._entry.bind("<Down>", self._on_arrow_down)
+
+    def _on_key_release(self, event=None):
+        if event and event.keysym in ("Down", "Up", "Return", "Escape"):
+            return
+            
+        val = self.var.get().strip().lower()
+        if not val:
+            self._hide_suggestions()
+            return
+            
+        # Fetch matching items from the decoupled callback
+        matches = self.search_callback(val)
+                
+        if matches:
+            self._show_suggestions(matches)
+        else:
+            self._hide_suggestions()
+
+    def _show_suggestions(self, matches):
+        if self._after_id:
+            self.entry.after_cancel(self._after_id)
+            self._after_id = None
+            
+        if not self.popup:
+            self.popup = tk.Toplevel(self.entry.winfo_toplevel())
+            self.popup.wm_overrideredirect(True)
+            self.popup.configure(bg="#D1D5DB")
+            
+            frame = tk.Frame(self.popup, bg="white")
+            frame.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+            
+            scrollbar = tk.Scrollbar(frame, orient="vertical")
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            
+            self.listbox = tk.Listbox(
+                frame, 
+                font=("Segoe UI", 11), 
+                bg="white", 
+                fg="#111827", 
+                selectbackground="#4F46E5", 
+                selectforeground="white",
+                bd=0, 
+                highlightthickness=0,
+                activestyle="none",
+                yscrollcommand=scrollbar.set
+            )
+            self.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar.config(command=self.listbox.yview)
+            
+            self.listbox.bind("<ButtonRelease-1>", self._on_select)
+            self.listbox.bind("<Return>", self._on_select)
+            self.listbox.bind("<FocusOut>", self._on_focus_out)
+            
+        self.listbox.delete(0, tk.END)
+        for item in matches:
+            display_text = f"{item['code']} - {item['name']}"
+            self.listbox.insert(tk.END, display_text)
+            
+        self.entry.update_idletasks()
+        x = self.entry.winfo_rootx()
+        y = self.entry.winfo_rooty() + self.entry.winfo_height()
+        width = self.entry.winfo_width()
+        height = min(150, len(matches) * 24 + 4)
+        
+        self.popup.geometry(f"{width}x{height}+{x}+{y}")
+        self.popup.deiconify()
+        self.popup.lift()
+
+    def _hide_suggestions(self):
+        if self.popup:
+            self.popup.withdraw()
+
+    def _on_focus_out(self, event):
+        if self._after_id:
+            self.entry.after_cancel(self._after_id)
+        self._after_id = self.entry.after(200, self._delayed_hide)
+
+    def _delayed_hide(self):
+        focus = self.entry.focus_get()
+        if self.popup and focus != self.listbox and focus != self.popup:
+            self._hide_suggestions()
+
+    def _on_arrow_down(self, event):
+        if self.popup and self.listbox and self.listbox.size() > 0:
+            self.listbox.focus_set()
+            self.listbox.selection_clear(0, tk.END)
+            self.listbox.selection_set(0)
+            self.listbox.activate(0)
+            return "break"
+
+    def _on_select(self, event=None):
+        if not self.listbox:
+            return
+        idx = self.listbox.curselection()
+        if idx:
+            selected_text = self.listbox.get(idx[0])
+            self.var.set(selected_text)
+            self._hide_suggestions()
+            self.entry.focus_set()
+            if hasattr(self.entry, "_entry"):
+                self.entry._entry.icursor(tk.END)
+            else:
+                self.entry.icursor(tk.END)

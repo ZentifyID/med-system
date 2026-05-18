@@ -7,18 +7,20 @@ import customtkinter as ctk
 from app.ui import (
     BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ACCENT,
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
-    FONT_FAMILY, FONT_MEDIUM, show_toast
+    FONT_FAMILY, FONT_MEDIUM, show_toast, ICDAutocomplete
 )
 
 
 class AppealViewPage(tk.Frame):
     def __init__(self, master, on_save: Callable[[int, dict], None], on_delete: Callable[[int], None], 
-                 on_cancel: Callable[[], None], get_person_details_cb: Callable[[str], dict | None]) -> None:
+                 on_cancel: Callable[[], None], get_person_details_cb: Callable[[str], dict | None],
+                 search_icd_cb: Callable[[str], list[dict]]) -> None:
         super().__init__(master, bg=BG_COLOR)
         self._on_save = on_save
         self._on_delete = on_delete
         self._on_cancel = on_cancel
         self._get_person_details = get_person_details_cb
+        self._search_icd = search_icd_cb
         
         self.appeal_id: int | None = None
         self.original_data: dict | None = None
@@ -95,6 +97,7 @@ class AppealViewPage(tk.Frame):
 
         # ── Row 10, 11: Diagnosis ─────────────────────────────────────────────
         self._add_field(self.inner, 5, 0, "Предварительный диагноз", "diagnosis", columnspan=2)
+        self.diagnosis_autocomplete = ICDAutocomplete(self.form_entries["diagnosis"], self.form_vars["diagnosis"], self._search_icd)
 
         # ── Row 12, 13: Recommendations ────────────────────────────────────────
         tk.Label(self.inner, text="Оказанная помощь, рекомендации", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(row=12, column=0, columnspan=2, sticky="ew", pady=(16, 4))

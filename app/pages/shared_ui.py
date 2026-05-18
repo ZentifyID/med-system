@@ -11,11 +11,13 @@ from app.ui import (
 )
 
 
-def _make_section_header(parent: tk.Frame, title: str, btn_text: str, btn_cmd: Callable) -> None:
+def _make_section_header(parent: tk.Frame, title: str, btn_text: str, btn_cmd: Callable, btn2_text: str | None = None, btn2_cmd: Callable | None = None) -> None:
     row = tk.Frame(parent, bg=BG_COLOR)
     row.pack(fill=tk.X, padx=36, pady=(32, 0))
     tk.Label(row, text=title, font=(FONT_FAMILY, 24, "bold"), bg=BG_COLOR, fg=TEXT_COLOR).pack(side=tk.LEFT)
     FlatButton(row, primary=True, text=btn_text, command=btn_cmd, height=44, width=160).pack(side=tk.RIGHT)
+    if btn2_text and btn2_cmd:
+        FlatButton(row, primary=False, text=btn2_text, command=btn2_cmd, height=44, width=180).pack(side=tk.RIGHT, padx=(0, 12))
     tk.Frame(parent, bg=BORDER, height=1).pack(fill=tk.X, padx=36, pady=(16, 0))
 
 

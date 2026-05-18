@@ -149,6 +149,54 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS icd_codes (
+                code TEXT PRIMARY KEY,
+                name TEXT NOT NULL
+            )
+            """
+        )
+        # Check if empty, populate default common codes
+        cursor = conn.execute("SELECT COUNT(*) FROM icd_codes")
+        if cursor.fetchone()[0] == 0:
+            default_codes = [
+                ("J06.9", "ОРВИ (Острая респираторная вирусная инфекция)"),
+                ("J00", "Острый назофарингит (насморк)"),
+                ("J11", "Грипп, вирус не идентифицирован"),
+                ("J10", "Грипп, вызванный идентифицированным вирусом гриппа"),
+                ("J20.9", "Острый бронхит неуточненный"),
+                ("J02.9", "Острый фарингит неуточненный"),
+                ("J03.9", "Острый тонзиллит неуточненный (ангина)"),
+                ("J35.0", "Хронический тонзиллит"),
+                ("J30.4", "Аллергический ринит неуточненный"),
+                ("S00.0", "Ушиб волосистой части головы"),
+                ("S00.1", "Ушиб века и окологлазничной области"),
+                ("S60.2", "Ушиб других частей запястья и кисти"),
+                ("S90.3", "Ушиб других и неуточненных частей стопы"),
+                ("T14.0", "Поверхностная травма неуточненной области (ссадина, царапина)"),
+                ("T14.1", "Открытая рана неуточненной области тела"),
+                ("S30.0", "Ушиб нижней части спины и таза"),
+                ("S80.0", "Ушиб коленного сустава"),
+                ("R51", "Головная боль"),
+                ("R10.4", "Другие и неуточненные боли в области живота"),
+                ("G90.8", "Вегетососудистая дистония (ВСД)"),
+                ("K29.9", "Гастродуоденит неуточненный"),
+                ("K29.7", "Гастрит неуточненный"),
+                ("H52.1", "Миопия (близорукость)"),
+                ("M41.9", "Сколиоз неуточненный"),
+                ("M40.9", "Кифоз неуточненный"),
+                ("L30.9", "Дерматит неуточненный"),
+                ("H66.9", "Средний отит неуточненный"),
+                ("J45.9", "Астма неуточненная"),
+                ("E10.9", "Инсулинозависимый сахарный диабет (без осложнений)"),
+                ("T78.4", "Аллергия неуточненная"),
+                ("N30.9", "Цистит неуточненный"),
+                ("K59.0", "Запор"),
+                ("R11", "Тошнота и рвота"),
+                ("R50.9", "Лихорадка неуточненная (повышенная температура)"),
+            ]
+            conn.executemany("INSERT INTO icd_codes (code, name) VALUES (?, ?)", default_codes)
         conn.commit()
     finally:
         conn.close()
@@ -773,6 +821,78 @@ def check_and_auto_increment_groups() -> int:
         conn.execute("INSERT OR REPLACE INTO system_info (key, value) VALUES ('last_group_increment_year', ?)", (current_year,))
         conn.commit()
         return count
+    finally:
+        conn.close()
+
+
+def search_icd_codes(query: str) -> list[dict]:
+    conn = sqlite3.connect(DB_PATH)
+    conn.create_function("py_lower", 1, lambda s: s.lower() if s else "")
+    try:
+        q = f"%{query.lower()}%"
+        rows = conn.execute(
+            "SELECT code, name FROM icd_codes WHERE py_lower(code) LIKE ? OR py_lower(name) LIKE ? ORDER BY code LIMIT 30",
+            (q, q)
+        ).fetchall()
+        return [{"code": r[0], "name": r[1]} for r in rows]
+    finally:
+        conn.close()
+
+
+def fetch_all_icd_codes(query: str = "") -> list[dict]:
+    conn = sqlite3.connect(DB_PATH)
+    conn.create_function("py_lower", 1, lambda s: s.lower() if s else "")
+    try:
+        if query:
+            q = f"%{query.lower()}%"
+            rows = conn.execute(
+                "SELECT code, name FROM icd_codes WHERE py_lower(code) LIKE ? OR py_lower(name) LIKE ? ORDER BY code",
+                (q, q)
+            ).fetchall()
+        else:
+            rows = conn.execute("SELECT code, name FROM icd_codes ORDER BY code").fetchall()
+        return [{"code": r[0], "name": r[1]} for r in rows]
+    finally:
+        conn.close()
+
+
+def insert_icd_code(code: str, name: str) -> bool:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("INSERT INTO icd_codes (code, name) VALUES (?, ?)", (code, name))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+
+def update_icd_code(old_code: str, new_code: str, new_name: str) -> bool:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        if old_code != new_code:
+            row = conn.execute("SELECT 1 FROM icd_codes WHERE code = ?", (new_code,)).fetchone()
+            if row:
+                return False
+        conn.execute(
+            "UPDATE icd_codes SET code = ?, name = ? WHERE code = ?",
+            (new_code, new_name, old_code)
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+
+def delete_icd_code(code: str) -> bool:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("DELETE FROM icd_codes WHERE code = ?", (code,))
+        conn.commit()
+        return True
     finally:
         conn.close()
 
