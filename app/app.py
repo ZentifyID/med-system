@@ -13,7 +13,7 @@ from app.database import (
     fetch_groups, fetch_group_by_id, insert_group, update_group, delete_group,
     fetch_medicines_for_table, fetch_medicine_by_id, insert_medicine, update_medicine, delete_medicine,
     fetch_appeals_for_table, fetch_appeal_by_id, insert_appeal, update_appeal, delete_appeal,
-    fetch_all_person_names, fetch_person_details_by_name, get_next_appeal_number, search_icd_codes,
+    fetch_persons_for_combobox, get_next_appeal_number, search_icd_codes,
     fetch_all_icd_codes, insert_icd_code, update_icd_code, delete_icd_code,
     increment_first_digit_in_all_groups, check_and_auto_increment_groups,
     get_student_count_by_group,
@@ -201,8 +201,8 @@ class App:
             on_delete=self.delete_appeal_action, on_filter_changed=self.on_filter_changed_appeals, search_icon=self.icons["search"],
             fetch_icd_cb=fetch_all_icd_codes, insert_icd_cb=insert_icd_code, update_icd_cb=update_icd_code, delete_icd_cb=delete_icd_code
         )
-        self.appeal_form_page = AppealFormPage(c, on_save=self.save_appeal, on_cancel=self.show_appeals_page, get_person_details_cb=fetch_person_details_by_name, get_next_num_cb=get_next_appeal_number, search_icd_cb=search_icd_codes)
-        self.appeal_view_page = AppealViewPage(c, on_save=self.edit_appeal, on_delete=self.delete_appeal_action, on_cancel=self.show_appeals_page, get_person_details_cb=fetch_person_details_by_name, search_icd_cb=search_icd_codes)
+        self.appeal_form_page = AppealFormPage(c, on_save=self.save_appeal, on_cancel=self.show_appeals_page, get_next_num_cb=get_next_appeal_number, search_icd_cb=search_icd_codes)
+        self.appeal_view_page = AppealViewPage(c, on_save=self.edit_appeal, on_delete=self.delete_appeal_action, on_cancel=self.show_appeals_page, search_icd_cb=search_icd_codes)
 
         self._all_pages = [
             self.main_page, self.employees_page, self.employee_form_page, self.employee_view_page,
@@ -289,8 +289,6 @@ class App:
 
     def refresh_employees_table(self) -> None:
         rows = fetch_employees_for_table()
-        now = datetime.now()
-        fourteen_days = now + timedelta(days=14)
         filtered = []
         for id, fio, affiliation, san_date, med_date, flu_date in rows:
             if self.search_query and self.search_query not in fio.lower():
@@ -308,7 +306,8 @@ class App:
         try:
             insert_employee(data)
         except sqlite3.DatabaseError as exc:
-            messagebox.showerror("Ошибка базы данных", str(exc)); return
+            messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.show_employees_page()
 
     def edit_employee(self, employee_id: int, data: dict) -> None:
@@ -360,8 +359,6 @@ class App:
 
     def refresh_students_table(self) -> None:
         rows = fetch_students_for_table()
-        now = datetime.now()
-        fourteen_days = now + timedelta(days=14)
         filtered = []
         for id, fio, group_name, san_date, med_date, flu_date in rows:
             if self.search_query_students and self.search_query_students not in fio.lower():
@@ -502,8 +499,6 @@ class App:
 
     def refresh_medicines_table(self) -> None:
         rows = fetch_medicines_for_table()
-        now = datetime.now()
-        fourteen_days = now + timedelta(days=14)
         filtered = []
         for id, name, dosage, qty, exp_date_str in rows:
             if self.search_query_medicines and self.search_query_medicines not in name.lower():
@@ -545,8 +540,6 @@ class App:
 
     def order_medicines_action(self) -> None:
         rows = fetch_medicines_for_table()
-        now = datetime.now()
-        fourteen_days = now + timedelta(days=14)
         to_order = []
         for id, name, dosage, qty, exp_date_str in rows:
             is_expired, is_expiring = get_medicine_expiration_status(exp_date_str)
@@ -576,14 +569,14 @@ class App:
     def show_add_appeal_page(self) -> None:
         self._set_active_nav("Обращения")
         self.appeal_form_page.reset_form()
-        self.appeal_form_page.set_senders(fetch_all_person_names())
+        self.appeal_form_page.set_senders(fetch_persons_for_combobox())
         self._show_page(self.appeal_form_page)
 
     def show_appeal_view_page(self, appeal_id: int) -> None:
         self._set_active_nav("Обращения")
         data = fetch_appeal_by_id(appeal_id)
         if data:
-            self.appeal_view_page.set_senders(fetch_all_person_names())
+            self.appeal_view_page.set_senders(fetch_persons_for_combobox())
             self.appeal_view_page.set_appeal_data(data)
             self._show_page(self.appeal_view_page)
         else:

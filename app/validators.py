@@ -38,6 +38,7 @@ FIELD_MAX_LENGTHS = {
     "medical_exam_date": 10,
     "fluorography_date": 10,
     "group_id": 10,
+    "created_at": 10,
 }
 
 LETTER_FIELDS = {"last_name", "first_name", "middle_name"}
@@ -76,7 +77,7 @@ def allow_typed_value(field: str, value: str) -> bool:
     if field in DIGITS_EXACT_LENGTH:
         return value.isdigit()
 
-    if field in DATE_FIELDS:
+    if field in DATE_FIELDS or field == "created_at":
         if not all(char.isdigit() or char == "." for char in value):
             return False
         if sum(char.isdigit() for char in value) > 8:
@@ -121,6 +122,7 @@ def validate_employee_payload(payload: dict[str, str]) -> list[str]:
             )
 
     for field, max_len in FIELD_MAX_LENGTHS.items():
+        if field not in FIELD_LABELS: continue
         value = payload.get(field, "")
         if len(value) > max_len:
             errors.append(f"Поле '{FIELD_LABELS[field]}' не должно превышать {max_len} символов.")
@@ -157,6 +159,7 @@ def validate_student_payload(payload: dict[str, str]) -> list[str]:
             )
 
     for field, exact_len in DIGITS_EXACT_LENGTH.items():
+        if field not in STUDENT_FIELD_LABELS: continue
         value = payload.get(field, "")
         if value and (not value.isdigit() or len(value) != exact_len):
             errors.append(
@@ -164,7 +167,7 @@ def validate_student_payload(payload: dict[str, str]) -> list[str]:
             )
 
     for field, max_len in FIELD_MAX_LENGTHS.items():
-        if field == "affiliation": continue
+        if field not in STUDENT_FIELD_LABELS: continue
         value = payload.get(field, "")
         if len(value) > max_len:
             errors.append(f"Поле '{STUDENT_FIELD_LABELS[field]}' не должно превышать {max_len} символов.")
@@ -205,7 +208,7 @@ def get_medicine_expiration_status(exp_date_str: str) -> tuple[bool, bool]:
         try:
             d = datetime.strptime(exp_date_str, "%d.%m.%Y")
             is_expired = d < now
-            is_expiring = d <= fourteen_days
+            is_expiring = now <= d <= fourteen_days
         except ValueError:
             pass
     return is_expired, is_expiring

@@ -8,21 +8,21 @@ import customtkinter as ctk
 from app.ui import (
     BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ACCENT,
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
-    FONT_FAMILY, FONT_MEDIUM, show_toast, ICDAutocomplete
+    FONT_FAMILY, FONT_MEDIUM, show_toast, ICDAutocomplete, DateMaskHandler
 )
+from app.validators import allow_typed_value, validate_date
 
 
 class AppealFormPage(tk.Frame):
     def __init__(self, master, on_save: Callable[[dict], None], on_cancel: Callable[[], None], 
-                 get_person_details_cb: Callable[[str], dict | None],
                  get_next_num_cb: Callable[[], int],
                  search_icd_cb: Callable[[str], list[dict]]) -> None:
         super().__init__(master, bg=BG_COLOR)
         self._on_save = on_save
         self._on_cancel = on_cancel
-        self._get_person_details = get_person_details_cb
         self._get_next_num = get_next_num_cb
         self._search_icd = search_icd_cb
+        self.person_map = {}
         
         self.form_vars: dict[str, tk.StringVar] = {
             "number": tk.StringVar(),
@@ -101,19 +101,33 @@ class AppealFormPage(tk.Frame):
 
     def _add_field(self, parent, row, col, label, var_key, readonly=False, columnspan=1):
         tk.Label(parent, text=label, font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(row=row*2, column=col, columnspan=columnspan, sticky="ew", pady=(16, 4), padx=(0 if col==0 else 10, 0))
+        
+        vcmd = None
+        if var_key == "created_at":
+            vcmd = (self.register(lambda p: allow_typed_value("created_at", p)), "%P")
+        elif var_key == "number":
+            vcmd = (self.register(lambda p: p.isdigit() or p == ""), "%P")
+
         entry = ctk.CTkEntry(
             parent, textvariable=self.form_vars[var_key],
             font=(FONT_FAMILY, 14),
             fg_color="#F3F4F6" if readonly else ENTRY_BG, 
             text_color=TEXT_MUTED if readonly else ENTRY_FG,
             border_color=ENTRY_BORDER, corner_radius=CORNER_RADIUS, height=40,
-            state="readonly" if readonly else "normal"
+            state="readonly" if readonly else "normal",
+            validate="key" if vcmd else "none",
+            validatecommand=vcmd
         )
         entry.grid(row=row*2+1, column=col, columnspan=columnspan, sticky="ew", pady=(0, 8), padx=(0 if col==0 else 10, 0))
+        
+        if var_key == "created_at":
+            DateMaskHandler.bind_to_entry(entry, self.form_vars[var_key])
+
         return entry
 
-    def set_senders(self, senders: list[str]) -> None:
-        self.sender_combo.configure(values=senders)
+    def set_senders(self, persons: list[dict]) -> None:
+        self.person_map = {p["display"]: p for p in persons}
+        self.sender_combo.configure(values=list(self.person_map.keys()))
 
     def reset_form(self) -> None:
         for v in self.form_vars.values():
@@ -126,7 +140,7 @@ class AppealFormPage(tk.Frame):
         self.form_vars["created_at"].set(datetime.now().strftime("%d.%m.%Y"))
 
     def _on_sender_selected(self, name: str) -> None:
-        details = self._get_person_details(name)
+        details = self.person_map.get(name)
         if details:
             self.form_vars["birth_date"].set(details.get("birth_date", ""))
             self.form_vars["group_name"].set(details.get("group_name", ""))
@@ -142,7 +156,10 @@ class AppealFormPage(tk.Frame):
         errors = []
         if not data["number"]: errors.append("Введите номер обращения.")
         if not data["sender"]: errors.append("Выберите пациента.")
-        if not data["created_at"]: errors.append("Укажите дату.")
+        if not data["created_at"] or data["created_at"] == "__.__.____":
+            errors.append("Укажите дату.")
+        elif not validate_date(data["created_at"]):
+            errors.append("Неверный формат даты обращения (ожидается ДД.ММ.ГГГГ).")
         
         if errors:
             messagebox.showwarning("Ошибка", "\n".join(errors))

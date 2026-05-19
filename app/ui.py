@@ -4,6 +4,41 @@ from typing import Any
 from collections import deque
 
 import customtkinter as ctk
+import sys
+import tkinter
+
+# --- PATCH: Fix CTkComboBox hover effect when state="readonly" and style it professionally ---
+def _patched_on_enter(self, event=0):
+    if self._hover is True and self._state in (tkinter.NORMAL, "readonly") and len(self._values) > 0:
+        if sys.platform == "darwin" and len(self._values) > 0 and self._cursor_manipulation_enabled:
+            self._canvas.configure(cursor="pointinghand")
+        elif sys.platform.startswith("win") and len(self._values) > 0 and self._cursor_manipulation_enabled:
+            self._canvas.configure(cursor="hand2")
+
+        # Make the button background a beautiful soft light grey instead of indigo
+        self._canvas.itemconfig("inner_parts_right",
+                                outline=self._apply_appearance_mode("#E5E7EB"),
+                                fill=self._apply_appearance_mode("#E5E7EB"))
+        self._canvas.itemconfig("border_parts_right",
+                                outline=self._apply_appearance_mode("#D1D5DB"),
+                                fill=self._apply_appearance_mode("#D1D5DB"))
+
+def _patched_on_leave(self, event=0):
+    if sys.platform == "darwin" and len(self._values) > 0 and self._cursor_manipulation_enabled:
+        self._canvas.configure(cursor="arrow")
+    elif sys.platform.startswith("win") and len(self._values) > 0 and self._cursor_manipulation_enabled:
+        self._canvas.configure(cursor="arrow")
+
+    # Revert button parts to normal button color
+    self._canvas.itemconfig("inner_parts_right",
+                            outline=self._apply_appearance_mode(self._button_color),
+                            fill=self._apply_appearance_mode(self._button_color))
+    self._canvas.itemconfig("border_parts_right",
+                            outline=self._apply_appearance_mode(self._button_color),
+                            fill=self._apply_appearance_mode(self._button_color))
+
+ctk.CTkComboBox._on_enter = _patched_on_enter
+ctk.CTkComboBox._on_leave = _patched_on_leave
 
 # ── Color Palette — Closure‑style Clean Light UI ─────────────────────────────
 # Sidebar (white with right border)

@@ -7,20 +7,20 @@ import customtkinter as ctk
 from app.ui import (
     BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ACCENT,
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
-    FONT_FAMILY, FONT_MEDIUM, show_toast, ICDAutocomplete
+    FONT_FAMILY, FONT_MEDIUM, show_toast, ICDAutocomplete, DateMaskHandler
 )
+from app.validators import allow_typed_value, validate_date
 
 
 class AppealViewPage(tk.Frame):
     def __init__(self, master, on_save: Callable[[int, dict], None], on_delete: Callable[[int], None], 
-                 on_cancel: Callable[[], None], get_person_details_cb: Callable[[str], dict | None],
-                 search_icd_cb: Callable[[str], list[dict]]) -> None:
+                 on_cancel: Callable[[], None], search_icd_cb: Callable[[str], list[dict]]) -> None:
         super().__init__(master, bg=BG_COLOR)
         self._on_save = on_save
         self._on_delete = on_delete
         self._on_cancel = on_cancel
-        self._get_person_details = get_person_details_cb
         self._search_icd = search_icd_cb
+        self.person_map = {}
         
         self.appeal_id: int | None = None
         self.original_data: dict | None = None
@@ -80,7 +80,8 @@ class AppealViewPage(tk.Frame):
             button_color=ENTRY_BORDER, button_hover_color=ACCENT, corner_radius=CORNER_RADIUS, height=40,
             command=self._on_sender_selected
         )
-        # Combo is hidden initially
+        self.sender_combo.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+        self.sender_combo.grid_remove()
 
         # ── Row 4, 5: Birth Date & Group Name (Read-only) ─────────────────────
         self._add_field(self.inner, 2, 0, "Дата рождения (авто)", "birth_date", readonly_always=True)
@@ -125,6 +126,12 @@ class AppealViewPage(tk.Frame):
         lbl.grid(row=row*2+1, column=col, columnspan=columnspan, sticky="ew", pady=(0, 8), padx=(0 if col==0 else 10, 0))
         self.form_labels[var_key] = lbl
         
+        vcmd = None
+        if var_key == "created_at":
+            vcmd = (self.register(lambda p: allow_typed_value("created_at", p)), "%P")
+        elif var_key == "number":
+            vcmd = (self.register(lambda p: p.isdigit() or p == ""), "%P")
+
         # Edit mode entry
         entry = ctk.CTkEntry(
             parent, textvariable=self.form_vars[var_key],
@@ -132,19 +139,26 @@ class AppealViewPage(tk.Frame):
             fg_color="#F3F4F6" if readonly_always else ENTRY_BG, 
             text_color=TEXT_MUTED if readonly_always else ENTRY_FG,
             border_color=ENTRY_BORDER, corner_radius=CORNER_RADIUS, height=40,
-            state="readonly" if readonly_always else "normal"
+            state="readonly" if readonly_always else "normal",
+            validate="key" if vcmd else "none",
+            validatecommand=vcmd
         )
+        entry.grid(row=row*2+1, column=col, columnspan=columnspan, sticky="ew", pady=(0, 8), padx=(0 if col==0 else 10, 0))
+        entry.grid_remove()
         self.form_entries[var_key] = entry
-        # Entries are hidden initially
+        
+        if var_key == "created_at":
+            DateMaskHandler.bind_to_entry(entry, self.form_vars[var_key])
 
     def _show_view_actions(self):
         self.edit_button.pack(side=tk.LEFT)
         self.delete_button.pack(side=tk.LEFT, padx=(12, 0))
         self.back_button.pack(side=tk.RIGHT)
 
-    def set_senders(self, senders: list[str]) -> None:
-        self.senders = senders
-        self.sender_combo.configure(values=senders)
+    def set_senders(self, persons: list[dict]) -> None:
+        self.person_map = {p["display"]: p for p in persons}
+        self.senders = list(self.person_map.keys())
+        self.sender_combo.configure(values=self.senders)
 
     def set_appeal_data(self, data: dict) -> None:
         self.appeal_id = int(data["id"])
@@ -178,7 +192,7 @@ class AppealViewPage(tk.Frame):
                 self.form_entries[k].grid()
             
             self.sender_label.grid_remove()
-            self.sender_combo.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+            self.sender_combo.grid()
             
             self.complaints_text.configure(state="normal")
             self.recommendations_text.configure(state="normal")
@@ -198,7 +212,7 @@ class AppealViewPage(tk.Frame):
             self.recommendations_text.configure(state="disabled")
 
     def _on_sender_selected(self, name: str) -> None:
-        details = self._get_person_details(name)
+        details = self.person_map.get(name)
         if details:
             self.form_vars["birth_date"].set(details.get("birth_date", ""))
             self.form_vars["group_name"].set(details.get("group_name", ""))
@@ -206,7 +220,6 @@ class AppealViewPage(tk.Frame):
     def _cancel_edit(self) -> None:
         if self.original_data:
             self.set_appeal_data(self.original_data)
-        self._toggle_edit_mode()
 
     def _delete(self) -> None:
         if self.appeal_id and messagebox.askyesno("Подтверждение", "Удалить это обращение?"):
@@ -221,6 +234,11 @@ class AppealViewPage(tk.Frame):
         errors = []
         if not data["number"]: errors.append("Введите номер обращения.")
         if not data["sender"]: errors.append("Выберите пациента.")
+        if not data["created_at"] or data["created_at"] == "__.__.____":
+            errors.append("Укажите дату.")
+        elif not validate_date(data["created_at"]):
+            errors.append("Неверный формат даты обращения (ожидается ДД.ММ.ГГГГ).")
+            
         if errors:
             messagebox.showwarning("Ошибка", "\n".join(errors))
             return

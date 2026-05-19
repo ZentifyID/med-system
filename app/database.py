@@ -122,8 +122,12 @@ def init_db() -> None:
         cursor = conn.execute("PRAGMA table_info(appeals)")
         cols = [row[1] for row in cursor.fetchall()]
         if cols and "title" in cols:
-            # Radical change requested - drop and recreate
-            conn.execute("DROP TABLE appeals")
+            # Preserve old data by renaming instead of dropping
+            try:
+                conn.execute("ALTER TABLE appeals RENAME TO appeals_backup_v1")
+            except sqlite3.OperationalError:
+                # Fallback if backup already exists
+                conn.execute("DROP TABLE appeals")
 
         conn.execute(
             """
@@ -604,51 +608,26 @@ def delete_medicine(medicine_id: int) -> None:
         conn.close()
 
 
-def fetch_all_person_names() -> list[str]:
+def fetch_persons_for_combobox() -> list[dict]:
     conn = sqlite3.connect(DB_PATH)
     try:
-        emp = conn.execute("SELECT last_name, first_name, middle_name FROM employees").fetchall()
-        stu = conn.execute("SELECT last_name, first_name, middle_name FROM students").fetchall()
-        names = []
-        for r in emp + stu:
-            ln = r[0] or ""
-            fn = r[1] or ""
-            mn = r[2] or ""
-            full = f"{ln} {fn} {mn}".strip()
-            if full:
-                full = " ".join(full.split())
-                names.append(full)
-        return sorted(list(set(names)))
-    finally:
-        conn.close()
-
-
-def fetch_person_details_by_name(full_name: str) -> dict | None:
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        # Normalize name (remove extra spaces)
-        full_name = " ".join(full_name.split())
+        emp = conn.execute("SELECT id, last_name, first_name, middle_name, birth_date, affiliation FROM employees").fetchall()
+        stu = conn.execute("SELECT s.id, s.last_name, s.first_name, s.middle_name, s.birth_date, g.name FROM students s JOIN groups g ON s.group_id = g.id").fetchall()
         
-        # Search in students
-        row = conn.execute("""
-            SELECT s.birth_date, g.name 
-            FROM students s 
-            JOIN groups g ON s.group_id = g.id
-            WHERE (s.last_name || ' ' || s.first_name || ' ' || s.middle_name) = ?
-        """, (full_name,)).fetchone()
-        if row:
-            return {"birth_date": row[0], "group_name": row[1]}
-        
-        # Search in employees
-        row = conn.execute("""
-            SELECT birth_date, affiliation
-            FROM employees
-            WHERE (last_name || ' ' || first_name || ' ' || middle_name) = ?
-        """, (full_name,)).fetchone()
-        if row:
-            return {"birth_date": row[0], "group_name": row[1]}
+        persons = []
+        for r in emp:
+            fio = f"{r[1] or ''} {r[2] or ''} {r[3] or ''}".strip()
+            fio = " ".join(fio.split())
+            display = f"{fio} (Сотрудник, {r[5]})"
+            persons.append({"display": display, "birth_date": str(r[4]), "group_name": str(r[5])})
             
-        return None
+        for r in stu:
+            fio = f"{r[1] or ''} {r[2] or ''} {r[3] or ''}".strip()
+            fio = " ".join(fio.split())
+            display = f"{fio} (Группа {r[5]})"
+            persons.append({"display": display, "birth_date": str(r[4]), "group_name": str(r[5])})
+            
+        return sorted(persons, key=lambda x: x["display"])
     finally:
         conn.close()
 
@@ -788,12 +767,12 @@ def increment_first_digit_in_all_groups() -> int:
         to_update.sort(key=lambda x: x[3], reverse=True)
         
         count = 0
-        for gid, _, new_name, _ in to_update:
+        for gid, old_name, new_name, _ in to_update:
             try:
                 conn.execute("UPDATE groups SET name = ? WHERE id = ?", (new_name, gid))
                 count += 1
             except sqlite3.IntegrityError:
-                pass
+                raise Exception(f"Не удалось перевести группу '{old_name}', так как группа '{new_name}' уже существует.")
         conn.commit()
         return count
     finally:
