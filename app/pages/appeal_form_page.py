@@ -8,8 +8,9 @@ import customtkinter as ctk
 from app.ui import (
     BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ACCENT,
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
-    FONT_FAMILY, FONT_MEDIUM, show_toast, ICDAutocomplete, DateMaskHandler
+    FONT_FAMILY, FONT_MEDIUM, show_toast, ICDAutocomplete
 )
+from app.date_mask import DateMaskHandler
 from app.validators import allow_typed_value, validate_date
 
 
@@ -80,7 +81,7 @@ class AppealFormPage(tk.Frame):
 
         # ── Row 8, 9: Complaints ──────────────────────────────────────────────
         tk.Label(inner, text="Жалобы", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(row=8, column=0, columnspan=2, sticky="ew", pady=(16, 4))
-        self.complaints_text = ctk.CTkTextbox(inner, font=(FONT_FAMILY, 13), fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER, border_width=1, corner_radius=CORNER_RADIUS, height=80)
+        self.complaints_text = ctk.CTkTextbox(inner, font=(FONT_FAMILY, 13), fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER, border_width=1, corner_radius=CORNER_RADIUS, height=80, undo=True)
         self.complaints_text.grid(row=9, column=0, columnspan=2, sticky="ew")
 
         # ── Row 10, 11: Diagnosis ──────────────────────────────────────────────
@@ -89,7 +90,7 @@ class AppealFormPage(tk.Frame):
 
         # ── Row 12, 13: Recommendations ─────────────────────────────────────────
         tk.Label(inner, text="Оказанная помощь, рекомендации", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(row=12, column=0, columnspan=2, sticky="ew", pady=(16, 4))
-        self.recommendations_text = ctk.CTkTextbox(inner, font=(FONT_FAMILY, 13), fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER, border_width=1, corner_radius=CORNER_RADIUS, height=80)
+        self.recommendations_text = ctk.CTkTextbox(inner, font=(FONT_FAMILY, 13), fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER, border_width=1, corner_radius=CORNER_RADIUS, height=80, undo=True)
         self.recommendations_text.grid(row=13, column=0, columnspan=2, sticky="ew")
 
         # Actions
@@ -134,10 +135,19 @@ class AppealFormPage(tk.Frame):
             v.set("")
         self.complaints_text.delete("1.0", tk.END)
         self.recommendations_text.delete("1.0", tk.END)
+        self._reset_text_undo(self.complaints_text)
+        self._reset_text_undo(self.recommendations_text)
         
         # Set defaults
         self.form_vars["number"].set(str(self._get_next_num()))
         self.form_vars["created_at"].set(datetime.now().strftime("%d.%m.%Y"))
+
+    def _reset_text_undo(self, textbox: ctk.CTkTextbox) -> None:
+        inner_text = textbox._textbox if hasattr(textbox, "_textbox") else textbox
+        try:
+            inner_text.edit_reset()
+        except tk.TclError:
+            pass
 
     def _on_sender_selected(self, name: str) -> None:
         details = self.person_map.get(name)

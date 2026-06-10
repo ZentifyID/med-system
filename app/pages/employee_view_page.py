@@ -7,8 +7,9 @@ import customtkinter as ctk
 from app.ui import (
     BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ACCENT,
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
-    FONT_FAMILY, FONT_MEDIUM, DateMaskHandler
+    FONT_FAMILY, FONT_MEDIUM
 )
+from app.date_mask import DateMaskHandler
 from app.validators import (
     AFFILIATION_UI_VALUES, DATE_FIELDS, FIELD_LABELS,
     normalize_affiliation, validate_employee_payload,

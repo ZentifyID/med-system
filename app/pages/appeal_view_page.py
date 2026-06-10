@@ -7,8 +7,9 @@ import customtkinter as ctk
 from app.ui import (
     BG_COLOR, BG_CARD, TEXT_COLOR, TEXT_MUTED, BORDER, ACCENT,
     ENTRY_BG, ENTRY_FG, ENTRY_BORDER, CORNER_RADIUS, FlatButton,
-    FONT_FAMILY, FONT_MEDIUM, show_toast, ICDAutocomplete, DateMaskHandler
+    FONT_FAMILY, FONT_MEDIUM, show_toast, ICDAutocomplete
 )
+from app.date_mask import DateMaskHandler
 from app.validators import allow_typed_value, validate_date
 
 
@@ -92,7 +93,7 @@ class AppealViewPage(tk.Frame):
 
         # ── Row 8, 9: Complaints ──────────────────────────────────────────────
         tk.Label(self.inner, text="Жалобы", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(row=8, column=0, columnspan=2, sticky="ew", pady=(16, 4))
-        self.complaints_text = ctk.CTkTextbox(self.inner, font=(FONT_FAMILY, 13), fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER, border_width=1, corner_radius=CORNER_RADIUS, height=100)
+        self.complaints_text = ctk.CTkTextbox(self.inner, font=(FONT_FAMILY, 13), fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER, border_width=1, corner_radius=CORNER_RADIUS, height=100, undo=True)
         self.complaints_text.grid(row=9, column=0, columnspan=2, sticky="ew")
         self.complaints_text.configure(state="disabled")
 
@@ -102,7 +103,7 @@ class AppealViewPage(tk.Frame):
 
         # ── Row 12, 13: Recommendations ────────────────────────────────────────
         tk.Label(self.inner, text="Оказанная помощь, рекомендации", font=(FONT_MEDIUM, 11), bg=BG_CARD, fg=TEXT_MUTED, anchor="w").grid(row=12, column=0, columnspan=2, sticky="ew", pady=(16, 4))
-        self.recommendations_text = ctk.CTkTextbox(self.inner, font=(FONT_FAMILY, 13), fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER, border_width=1, corner_radius=CORNER_RADIUS, height=100)
+        self.recommendations_text = ctk.CTkTextbox(self.inner, font=(FONT_FAMILY, 13), fg_color=ENTRY_BG, text_color=ENTRY_FG, border_color=ENTRY_BORDER, border_width=1, corner_radius=CORNER_RADIUS, height=100, undo=True)
         self.recommendations_text.grid(row=13, column=0, columnspan=2, sticky="ew")
         self.recommendations_text.configure(state="disabled")
 
@@ -171,11 +172,13 @@ class AppealViewPage(tk.Frame):
         self.complaints_text.configure(state="normal")
         self.complaints_text.delete("1.0", tk.END)
         self.complaints_text.insert(tk.END, data.get("complaints", ""))
+        self._reset_text_undo(self.complaints_text)
         self.complaints_text.configure(state="disabled")
 
         self.recommendations_text.configure(state="normal")
         self.recommendations_text.delete("1.0", tk.END)
         self.recommendations_text.insert(tk.END, data.get("actions_recommendations", ""))
+        self._reset_text_undo(self.recommendations_text)
         self.recommendations_text.configure(state="disabled")
         
         if self.is_edit_mode: self._toggle_edit_mode()
@@ -216,6 +219,13 @@ class AppealViewPage(tk.Frame):
         if details:
             self.form_vars["birth_date"].set(details.get("birth_date", ""))
             self.form_vars["group_name"].set(details.get("group_name", ""))
+
+    def _reset_text_undo(self, textbox: ctk.CTkTextbox) -> None:
+        inner_text = textbox._textbox if hasattr(textbox, "_textbox") else textbox
+        try:
+            inner_text.edit_reset()
+        except tk.TclError:
+            pass
 
     def _cancel_edit(self) -> None:
         if self.original_data:

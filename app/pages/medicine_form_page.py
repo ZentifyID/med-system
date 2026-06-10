@@ -140,8 +140,8 @@ class MedicineFormPage(tk.Frame):
             s = self._d2i(cur, e.index("sel.first"))
             en = self._d2i(cur, e.index("sel.last"))
         ctrl = bool(ev.state & 0x4)
-        if ctrl and ev.keysym.lower() in {"a", "c", "x"}: return None
         if ctrl and ev.keysym.lower() == "v": return self._date_paste(ev, k)
+        if ctrl: return None
         if ev.keysym in {"Left", "Right", "Home", "End", "Tab", "ISO_Left_Tab", "Shift_L", "Shift_R"}: return None
         if ev.keysym == "BackSpace":
             if has_sel: return self._apply(k, self._replace(digits, s, en), s)
