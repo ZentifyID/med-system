@@ -1,13 +1,13 @@
-import os
+"""Контроллер приложения: навигация и связывание страниц со слоем данных."""
 import sqlite3
 import tkinter as tk
-from datetime import datetime, timedelta
 from tkinter import messagebox
 
 from PIL import Image
 import customtkinter as ctk
 
-from app.database import (
+from app import config
+from app.db import (
     delete_employee, fetch_employee_by_id, fetch_employees_for_table, init_db, insert_employee, update_employee,
     fetch_students_for_table, fetch_student_by_id, insert_student, update_student, delete_student,
     fetch_groups, fetch_group_by_id, insert_group, update_group, delete_group,
@@ -16,7 +16,7 @@ from app.database import (
     fetch_persons_for_combobox, get_next_appeal_number, search_icd_codes,
     fetch_all_icd_codes, insert_icd_code, update_icd_code, delete_icd_code,
     increment_first_digit_in_all_groups, check_and_auto_increment_groups,
-    get_student_count_by_group,
+    get_student_count_by_group, reorder_medicines,
 )
 from app.validators import get_person_expiration_status, get_medicine_expiration_status
 from app.pages.employee_form_page import EmployeeFormPage
@@ -47,9 +47,9 @@ from app.ui import (
 class App:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("Med System")
-        self.root.geometry("1280x820")
-        self.root.minsize(1024, 640)
+        self.root.title(config.APP_TITLE)
+        self.root.geometry(config.WINDOW_GEOMETRY)
+        self.root.minsize(*config.WINDOW_MIN_SIZE)
         self.root.configure(bg=BG_COLOR)
         setup_styles(root)
         setup_global_undo(root)
@@ -96,15 +96,9 @@ class App:
         self.root.after(1000, self.auto_check_academic_year)
 
     def _load_icons(self) -> dict:
-        import sys
-        if getattr(sys, 'frozen', False):
-            base_dir = sys._MEIPASS
-        else:
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            
         def get_icon(name, emoji):
-            path = os.path.join(base_dir, "assets", "icons", f"{name}.png")
-            if os.path.exists(path):
+            path = config.ICONS_DIR / f"{name}.png"
+            if path.exists():
                 try:
                     return ctk.CTkImage(light_image=Image.open(path), size=(20, 20))
                 except Exception:
@@ -504,7 +498,7 @@ class App:
             if self.search_query_medicines and self.search_query_medicines not in name.lower():
                 continue
             is_expired, is_expiring = get_medicine_expiration_status(exp_date_str)
-            is_low_qty = qty <= 5
+            is_low_qty = qty <= config.LOW_QUANTITY_THRESHOLD
             if self.filter_status_medicines == "Просроченные" and not is_expired:
                 continue
             if self.filter_status_medicines == "Истекают (2 недели)" and not is_expiring:
@@ -543,7 +537,7 @@ class App:
         to_order = []
         for id, name, dosage, qty, exp_date_str in rows:
             is_expired, is_expiring = get_medicine_expiration_status(exp_date_str)
-            if qty <= 5 or is_expiring:
+            if qty <= config.LOW_QUANTITY_THRESHOLD or is_expiring:
                 to_order.append({"id": id, "name": name, "dosage": dosage, "quantity": qty, "expiration_date": exp_date_str})
         if not to_order:
             show_toast(self.root, "Все лекарства в норме. Заказывать ничего не нужно.", "info")
@@ -552,11 +546,11 @@ class App:
 
     def confirm_order_medicines(self, result: list) -> None:
         try:
-            for item in result:
-                delete_medicine(int(item["old_id"]))
-                insert_medicine({"name": item["name"], "dosage": item["dosage"], "quantity": item["new_quantity"], "expiration_date": item["new_expiration_date"]})
+            # Одна транзакция: при ошибке база останется нетронутой
+            reorder_medicines(result)
         except sqlite3.DatabaseError as exc:
             messagebox.showerror("Ошибка базы данных", str(exc))
+            return
         self.refresh_medicines_table()
         show_toast(self.root, "Заказ оформлен: старые партии списаны, новые добавлены.", "success")
 

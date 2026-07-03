@@ -1,3 +1,4 @@
+"""Главная страница с карточками разделов."""
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Any
@@ -8,7 +9,7 @@ from app.ui import (
     BG_CARD, BG_COLOR, TEXT_COLOR, TEXT_MUTED, ACCENT, ACCENT_FG, ACCENT_LIGHT,
     BORDER, CORNER_RADIUS, MAIN_BUTTON_RADIUS, FONT_FAMILY, FONT_MEDIUM, FlatButton,
 )
-from app.database import (
+from app.db import (
     fetch_employees_for_table,
     fetch_students_for_table,
     fetch_medicines_for_table,

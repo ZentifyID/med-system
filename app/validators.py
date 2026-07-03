@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+from app.config import EXPIRY_WARNING_DAYS
+
 
 AFFILIATION_UI_VALUES = ("основной", "внешний совместитель")
 
@@ -57,6 +59,13 @@ DIGITS_EXACT_LENGTH = {
 }
 
 
+def is_valid_name(value: str) -> bool:
+    """Буквы, дефис и пробел — чтобы принимались двойные фамилии
+    (Салтыков-Щедрин) и составные имена (Анна Мария)."""
+    stripped = value.replace("-", "").replace(" ", "")
+    return bool(stripped) and stripped.isalpha()
+
+
 def normalize_affiliation(affiliation_ui_value: str) -> str:
     if affiliation_ui_value == "внешний совместитель":
         return "внешний"
@@ -72,7 +81,7 @@ def allow_typed_value(field: str, value: str) -> bool:
         return True
 
     if field in LETTER_FIELDS:
-        return value.isalpha()
+        return all(ch.isalpha() or ch in "- " for ch in value)
 
     if field in DIGITS_EXACT_LENGTH:
         return value.isdigit()
@@ -104,8 +113,8 @@ def validate_employee_payload(payload: dict[str, str]) -> list[str]:
 
     for field in LETTER_FIELDS:
         value = payload.get(field, "")
-        if value and not value.isalpha():
-            errors.append(f"Поле '{FIELD_LABELS[field]}' должно содержать только буквы.")
+        if value and not is_valid_name(value):
+            errors.append(f"Поле '{FIELD_LABELS[field]}' должно содержать только буквы (допускаются дефис и пробел).")
 
     for field in DATE_FIELDS:
         value = payload.get(field, "")
@@ -148,8 +157,8 @@ def validate_student_payload(payload: dict[str, str]) -> list[str]:
 
     for field in LETTER_FIELDS:
         value = payload.get(field, "")
-        if value and not value.isalpha():
-            errors.append(f"Поле '{STUDENT_FIELD_LABELS[field]}' должно содержать только буквы.")
+        if value and not is_valid_name(value):
+            errors.append(f"Поле '{STUDENT_FIELD_LABELS[field]}' должно содержать только буквы (допускаются дефис и пробел).")
 
     for field in DATE_FIELDS:
         value = payload.get(field, "")
@@ -181,34 +190,38 @@ def validate_student_payload(payload: dict[str, str]) -> list[str]:
 
 
 def get_person_expiration_status(dates: list[str]) -> tuple[bool, bool]:
-    """Returns (is_expired, is_expiring) for a list of person dates (med, san, flu)."""
-    now = datetime.now()
-    fourteen_days = now + timedelta(days=14)
+    """Возвращает (просрочено, истекает) для дат медосмотра/санминимума/флюорографии.
+    Документ действует 1 год с даты прохождения. Сравнение по дням, а не по
+    времени суток: документ, истекающий сегодня, ещё действует."""
+    today = datetime.now().date()
+    warning_edge = today + timedelta(days=EXPIRY_WARNING_DAYS)
     exp_dates = []
     for d_str in dates:
         try:
             d = datetime.strptime(d_str, "%d.%m.%Y")
             try:
                 exp = d.replace(year=d.year + 1)
-            except ValueError:
+            except ValueError:  # 29 февраля
                 exp = d.replace(year=d.year + 1, month=2, day=28)
-            exp_dates.append(exp)
+            exp_dates.append(exp.date())
         except ValueError:
             pass
-    is_expired = any(e < now for e in exp_dates)
-    is_expiring = any(now <= e <= fourteen_days for e in exp_dates)
+    is_expired = any(e < today for e in exp_dates)
+    is_expiring = any(today <= e <= warning_edge for e in exp_dates)
     return is_expired, is_expiring
 
+
 def get_medicine_expiration_status(exp_date_str: str) -> tuple[bool, bool]:
-    """Returns (is_expired, is_expiring) for a medicine expiration date."""
-    now = datetime.now()
-    fourteen_days = now + timedelta(days=14)
+    """Возвращает (просрочено, истекает) для срока годности лекарства.
+    Лекарство со сроком «сегодня» ещё годно."""
+    today = datetime.now().date()
+    warning_edge = today + timedelta(days=EXPIRY_WARNING_DAYS)
     is_expired = is_expiring = False
     if exp_date_str:
         try:
-            d = datetime.strptime(exp_date_str, "%d.%m.%Y")
-            is_expired = d < now
-            is_expiring = now <= d <= fourteen_days
+            d = datetime.strptime(exp_date_str, "%d.%m.%Y").date()
+            is_expired = d < today
+            is_expiring = today <= d <= warning_edge
         except ValueError:
             pass
     return is_expired, is_expiring
