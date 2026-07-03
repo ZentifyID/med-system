@@ -21,7 +21,7 @@ def _make_section_header(parent: tk.Frame, title: str, btn_text: str, btn_cmd: C
     tk.Frame(parent, bg=BORDER, height=1).pack(fill=tk.X, padx=36, pady=(16, 0))
 
 
-def _make_search_bar(parent: tk.Frame, search_var: tk.StringVar, filter_var: tk.StringVar | None, filter_values: list[str] | None, trigger_fn: Callable, search_icon: Any = None) -> None:
+def _make_search_bar(parent: tk.Frame, search_var: tk.StringVar, filter_var: tk.StringVar | None, filter_values: list[str] | None, trigger_fn: Callable, search_icon: Any = None) -> ctk.CTkEntry:
     bar = tk.Frame(parent, bg=BG_COLOR)
     bar.pack(fill=tk.X, padx=36, pady=(20, 16))
 
@@ -46,6 +46,7 @@ def _make_search_bar(parent: tk.Frame, search_var: tk.StringVar, filter_var: tk.
         height=44,
     )
     search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    parent.search_entry = search_entry
 
     if filter_var and filter_values:
         combo = ctk.CTkComboBox(
@@ -56,6 +57,8 @@ def _make_search_bar(parent: tk.Frame, search_var: tk.StringVar, filter_var: tk.
             command=trigger_fn
         )
         combo.pack(side=tk.RIGHT)
+
+    return search_entry
 
 
 def _make_table_card(parent: tk.Frame, columns: tuple, headings: dict, widths: dict, anchors: dict | None = None) -> tuple[tk.Frame, ttk.Treeview]:

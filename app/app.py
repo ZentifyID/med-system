@@ -40,8 +40,9 @@ from app.pages.delete_group_dialog import DeleteGroupDialog
 from app.ui import (
     BG_SIDEBAR, BG_COLOR, TEXT_SIDEBAR, ACCENT, TEXT_COLOR, TEXT_MUTED,
     BORDER, SIDEBAR_BORDER,
-    setup_styles, SidebarButton, setup_global_undo, show_toast,
+    setup_styles, SidebarButton, show_toast,
 )
+from app.hotkeys import setup_global_undo
 
 
 class App:
@@ -218,30 +219,69 @@ class App:
         elif self.current_page and hasattr(self.current_page, "_on_cancel"):
             self.current_page._on_cancel()
 
-    def handle_global_hotkeys(self, event) -> None:
-        if getattr(event, "keycode", 0) == 70 or getattr(event, "keysym", "").lower() in ("f", "а"):
+
+    def _is_text_input_widget(self, widget) -> bool:
+        if widget is None:
+            return False
+        try:
+            widget_class = widget.winfo_class()
+        except tk.TclError:
+            return False
+        return isinstance(widget, (tk.Entry, tk.Text)) or widget_class in {"Entry", "Text", "TEntry", "TCombobox"}
+
+    def _focus_entry(self, entry) -> None:
+        entry.focus_set()
+        inner_entry = entry._entry if hasattr(entry, "_entry") else entry
+        try:
+            inner_entry.focus_set()
+            inner_entry.selection_range(0, tk.END)
+            inner_entry.icursor(tk.END)
+        except tk.TclError:
+            pass
+
+    def handle_global_hotkeys(self, event) -> str | None:
+        keycode = getattr(event, "keycode", 0)
+        keysym = getattr(event, "keysym", "").lower()
+        if keycode == 70 or keysym == "f":
             self.handle_search_focus(event)
+            return "break"
+        if keycode == 83 or keysym == "s":
+            return self.handle_save_shortcut()
+        return None
 
     def handle_search_focus(self, event) -> None:
         if self.current_page and hasattr(self.current_page, "search_var"):
-            # Find the entry. Since it's inside _make_search_bar, we can just grab focus directly if we stored it,
-            # but we didn't store it. Let's just find the first CTkEntry inside the page.
-            for widget in self.current_page.winfo_children():
-                for child in widget.winfo_children():
-                    if isinstance(child, ctk.CTkEntry):
-                        child.focus_set()
-                        return
+            search_entry = getattr(self.current_page, "search_entry", None)
+            if search_entry is not None:
+                self._focus_entry(search_entry)
 
-    def handle_enter(self, event) -> None:
-        # If focusing on an entry, maybe we want to select first
+    def handle_save_shortcut(self) -> str | None:
+        if not self.current_page or not hasattr(self.current_page, "_submit"):
+            return None
+        if hasattr(self.current_page, "is_edit_mode") and not self.current_page.is_edit_mode:
+            return None
+        self.current_page._submit()
+        return "break"
+
+    def handle_enter(self, event) -> str | None:
+        focus_widget = self.root.focus_get()
+        if self._is_text_input_widget(focus_widget):
+            return None
+
         if self.current_page and hasattr(self.current_page, "_open_selected"):
-            # if search query is active and there's 1 item? Or just always open first item.
-            # We'll just invoke search if needed or open first.
-            if hasattr(self.current_page, "table"):
-                children = self.current_page.table.get_children()
-                if len(children) == 1:
-                    self.current_page.table.selection_set(children[0])
+            table = getattr(self.current_page, "table", None)
+            if table is not None:
+                selection = table.selection()
+                if focus_widget == table and selection:
                     self.current_page._open_selected()
+                    return "break"
+
+                children = table.get_children()
+                if len(children) == 1:
+                    table.selection_set(children[0])
+                    self.current_page._open_selected()
+                    return "break"
+        return None
 
     def auto_check_academic_year(self) -> None:
         try:

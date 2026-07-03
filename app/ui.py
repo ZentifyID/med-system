@@ -1,46 +1,16 @@
 import tkinter as tk
 from tkinter import ttk
 from typing import Any
-from collections import deque
 
 import customtkinter as ctk
-import sys
-import tkinter
 
-# --- PATCH: Fix CTkComboBox hover effect when state="readonly" and style it professionally ---
-def _patched_on_enter(self, event=0):
-    if self._hover is True and self._state in (tkinter.NORMAL, "readonly") and len(self._values) > 0:
-        if sys.platform == "darwin" and len(self._values) > 0 and self._cursor_manipulation_enabled:
-            self._canvas.configure(cursor="pointinghand")
-        elif sys.platform.startswith("win") and len(self._values) > 0 and self._cursor_manipulation_enabled:
-            self._canvas.configure(cursor="hand2")
+from app.date_mask import DateMaskHandler
+from app.hotkeys import setup_global_undo
 
-        # Make the button background a beautiful soft light grey instead of indigo
-        self._canvas.itemconfig("inner_parts_right",
-                                outline=self._apply_appearance_mode("#E5E7EB"),
-                                fill=self._apply_appearance_mode("#E5E7EB"))
-        self._canvas.itemconfig("border_parts_right",
-                                outline=self._apply_appearance_mode("#D1D5DB"),
-                                fill=self._apply_appearance_mode("#D1D5DB"))
+from app.widgets import apply_combobox_patch
 
-def _patched_on_leave(self, event=0):
-    if sys.platform == "darwin" and len(self._values) > 0 and self._cursor_manipulation_enabled:
-        self._canvas.configure(cursor="arrow")
-    elif sys.platform.startswith("win") and len(self._values) > 0 and self._cursor_manipulation_enabled:
-        self._canvas.configure(cursor="arrow")
+apply_combobox_patch()
 
-    # Revert button parts to normal button color
-    self._canvas.itemconfig("inner_parts_right",
-                            outline=self._apply_appearance_mode(self._button_color),
-                            fill=self._apply_appearance_mode(self._button_color))
-    self._canvas.itemconfig("border_parts_right",
-                            outline=self._apply_appearance_mode(self._button_color),
-                            fill=self._apply_appearance_mode(self._button_color))
-
-ctk.CTkComboBox._on_enter = _patched_on_enter
-ctk.CTkComboBox._on_leave = _patched_on_leave
-
-# ── Color Palette — Closure‑style Clean Light UI ─────────────────────────────
 # Sidebar (white with right border)
 BG_SIDEBAR              = "#FFFFFF"
 BG_SIDEBAR_ITEM_HOVER   = "#F3F4F6"
@@ -297,197 +267,6 @@ def setup_styles(root: tk.Tk) -> None:
         bordercolor=[("focus", ACCENT)],
     )
 
-class DateMaskHandler:
-    """Инкапсулирует логику форматирования и обработки ввода дат (маска ДД.ММ.ГГГГ)."""
-    
-    @staticmethod
-    def bind_to_entry(entry_widget: tk.Widget | ctk.CTkEntry, string_var: tk.StringVar) -> None:
-        inner_entry = entry_widget._entry if hasattr(entry_widget, '_entry') else entry_widget
-        handler = DateMaskHandler(inner_entry, string_var)
-        
-        inner_entry.bind("<FocusIn>", handler.on_focus_in)
-        inner_entry.bind("<FocusOut>", handler.on_focus_out)
-        inner_entry.bind("<KeyPress>", handler.on_keypress)
-        inner_entry.bind("<Control-v>", handler.on_paste)
-        inner_entry.bind("<<Paste>>", handler.on_paste)
-
-    def __init__(self, entry: tk.Widget, var: tk.StringVar):
-        self.entry = entry
-        self.var = var
-
-    def on_focus_in(self, event: tk.Event) -> None:
-        if self.var.get() == "__.__.____":
-            self.var.set("")
-
-    def on_focus_out(self, event: tk.Event) -> None:
-        if not self.var.get().strip():
-            self.var.set("__.__.____")
-
-    def _fmt(self, digits: str) -> str:
-        if len(digits) <= 2:
-            return digits
-        if len(digits) <= 4:
-            return f"{digits[:2]}.{digits[2:]}"
-        return f"{digits[:2]}.{digits[2:4]}.{digits[4:]}"
-
-    def _d2i(self, display: str, idx: int) -> int:
-        return sum(1 for c in display[:idx] if c.isdigit())
-
-    def _i2d(self, i: int) -> int:
-        if i <= 2:
-            return i
-        if i <= 4:
-            return i + 1
-        return i + 2
-
-    def _digits(self, v: str) -> str:
-        return "".join(c for c in v if c.isdigit())[:8]
-
-    def _replace(self, digits: str, s: int, e: int, r: str = "") -> str:
-        return (digits[:s] + r + digits[e:])[:8]
-
-    def _apply(self, digits: str, caret: int) -> str:
-        digits = digits[:8]
-        self.var.set(self._fmt(digits))
-        self.entry.icursor(self._i2d(max(0, min(caret, len(digits)))))
-        return "break"
-
-    def on_keypress(self, ev: tk.Event) -> str | None:
-        cur = self.entry.get()
-        if cur == "__.__.____":
-            cur = ""
-        digits = self._digits(cur)
-        has_sel = self.entry.selection_present()
-        
-        if has_sel:
-            s = self._d2i(cur, self.entry.index("sel.first"))
-            en = self._d2i(cur, self.entry.index("sel.last"))
-        else:
-            s = en = self._d2i(cur, self.entry.index(tk.INSERT))
-            
-        ctrl = bool(ev.state & 0x4)
-        if ctrl and ev.keysym.lower() in {"a", "c", "x"}:
-            return None
-        if ctrl and ev.keysym.lower() == "v":
-            return self.on_paste(ev)
-        if ev.keysym in {"Left", "Right", "Home", "End", "Tab", "ISO_Left_Tab", "Shift_L", "Shift_R"}:
-            return None
-            
-        if ev.keysym == "BackSpace":
-            if has_sel:
-                return self._apply(self._replace(digits, s, en), s)
-            if s == 0:
-                return "break"
-            return self._apply(self._replace(digits, s - 1, s), s - 1)
-            
-        if ev.keysym == "Delete":
-            if has_sel:
-                return self._apply(self._replace(digits, s, en), s)
-            if s >= len(digits):
-                return "break"
-            return self._apply(self._replace(digits, s, s + 1), s)
-            
-        if ev.char.isdigit():
-            if len(digits) >= 8 and not has_sel:
-                return "break"
-            return self._apply(self._replace(digits, s, en, ev.char), s + 1)
-            
-        return "break"
-
-    def on_paste(self, event: tk.Event) -> str:
-        cur = self.entry.get()
-        if cur == "__.__.____":
-            cur = ""
-        digits = self._digits(cur)
-        
-        try:
-            cb = self.entry.clipboard_get()
-        except tk.TclError:
-            return "break"
-            
-        pd = "".join(c for c in cb if c.isdigit())
-        if not pd:
-            return "break"
-            
-        has_sel = self.entry.selection_present()
-        if has_sel:
-            s = self._d2i(cur, self.entry.index("sel.first"))
-            en = self._d2i(cur, self.entry.index("sel.last"))
-        else:
-            s = en = self._d2i(cur, self.entry.index(tk.INSERT))
-            
-        nd = self._replace(digits, s, en, pd)
-        return self._apply(nd, min(s + len(pd), len(nd)))
-
-def setup_global_undo(root: tk.Tk) -> None:
-    def get_stacks(w: tk.Widget) -> tuple[deque, deque]:
-        if not hasattr(w, "_undo_stack"):
-            w._undo_stack = deque(maxlen=50)
-            w._redo_stack = deque(maxlen=50)
-            w._last_val = w.get() if hasattr(w, "get") else ""
-        return w._undo_stack, w._redo_stack
-
-    def track_changes(event: tk.Event) -> None:
-        w = getattr(event, "widget", None)
-        if not isinstance(w, tk.Entry):
-            return
-        keysym = getattr(event, "keysym", "")
-        if keysym in ('Control_L', 'Control_R', 'Alt_L', 'Alt_R', 'Shift_L', 'Shift_R'):
-            return
-        state = getattr(event, "state", 0)
-        if state & 0x0004 and keysym.lower() in ('z', 'y', 'я', 'н'):
-            return
-            
-        undo_stack, redo_stack = get_stacks(w)
-        try:
-            cur = w.get()
-        except Exception:
-            return
-        if cur != w._last_val:
-            undo_stack.append(w._last_val)
-            redo_stack.clear()
-            w._last_val = cur
-
-    def perform_undo(event: tk.Event) -> str | None:
-        w = getattr(event, "widget", None)
-        if not isinstance(w, tk.Entry):
-            return None
-        undo_stack, redo_stack = get_stacks(w)
-        if undo_stack:
-            redo_stack.append(w._last_val)
-            prev = undo_stack.pop()
-            w.delete(0, tk.END)
-            w.insert(0, prev)
-            w._last_val = prev
-        return "break"
-
-    def perform_redo(event: tk.Event) -> str | None:
-        w = getattr(event, "widget", None)
-        if not isinstance(w, tk.Entry):
-            return None
-        undo_stack, redo_stack = get_stacks(w)
-        if redo_stack:
-            undo_stack.append(w._last_val)
-            nxt = redo_stack.pop()
-            w.delete(0, tk.END)
-            w.insert(0, nxt)
-            w._last_val = nxt
-        return "break"
-
-    def global_hotkey_handler(event: tk.Event) -> str | None:
-        if not isinstance(getattr(event, "widget", None), tk.Entry):
-            return None
-        keycode = getattr(event, "keycode", 0)
-        keysym = getattr(event, "keysym", "").lower()
-        if keycode == 90 or keysym in ("z", "я"):
-            return perform_undo(event)
-        if keycode == 89 or keysym in ("y", "н"):
-            return perform_redo(event)
-        return None
-
-    root.bind_all("<KeyRelease>", track_changes, add="+")
-    root.bind_all("<Control-KeyPress>", global_hotkey_handler, add="+")
-
 def show_toast(master: tk.Widget, message: str, type: str = "success") -> None:
     if type == "success": bg_color = "#10B981"
     elif type == "error": bg_color = "#EF4444"
@@ -557,12 +336,14 @@ class ICDAutocomplete:
         self.entry.bind("<FocusOut>", self._on_focus_out)
         self.entry.bind("<FocusIn>", self._on_key_release)
         self.entry.bind("<Down>", self._on_arrow_down)
+        self.entry.bind("<Escape>", self._on_escape)
         
         if hasattr(self.entry, "_entry"):
             self.entry._entry.bind("<KeyRelease>", self._on_key_release)
             self.entry._entry.bind("<FocusOut>", self._on_focus_out)
             self.entry._entry.bind("<FocusIn>", self._on_key_release)
             self.entry._entry.bind("<Down>", self._on_arrow_down)
+            self.entry._entry.bind("<Escape>", self._on_escape)
 
     def _on_key_release(self, event=None):
         if event and event.keysym in ("Down", "Up", "Return", "Escape"):
@@ -614,6 +395,7 @@ class ICDAutocomplete:
             
             self.listbox.bind("<ButtonRelease-1>", self._on_select)
             self.listbox.bind("<Return>", self._on_select)
+            self.listbox.bind("<Escape>", self._on_escape)
             self.listbox.bind("<FocusOut>", self._on_focus_out)
             
         self.listbox.delete(0, tk.END)
@@ -652,6 +434,11 @@ class ICDAutocomplete:
             self.listbox.selection_set(0)
             self.listbox.activate(0)
             return "break"
+
+    def _on_escape(self, event=None):
+        self._hide_suggestions()
+        self.entry.focus_set()
+        return "break"
 
     def _on_select(self, event=None):
         if not self.listbox:
