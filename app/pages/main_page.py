@@ -49,7 +49,7 @@ class MainPage(tk.Frame):
         tk.Label(
             header,
             text="Главная",
-            font=(FONT_FAMILY, 24, "bold"),
+            font=(FONT_FAMILY, 19, "bold"),
             bg=BG_COLOR,
             fg=TEXT_COLOR,
         ).pack(side=tk.LEFT)
@@ -57,10 +57,10 @@ class MainPage(tk.Frame):
         tk.Label(
             header,
             text="Обзор системы",
-            font=(FONT_FAMILY, 13),
+            font=(FONT_FAMILY, 12),
             bg=BG_COLOR,
             fg=TEXT_MUTED,
-        ).pack(side=tk.LEFT, padx=(16, 0), pady=(4, 0))
+        ).pack(side=tk.LEFT, padx=(14, 0), pady=(4, 0))
 
         # Divider
         tk.Frame(self, bg=BORDER, height=1).pack(fill=tk.X, padx=36, pady=(8, 28))
@@ -107,8 +107,7 @@ class MainPage(tk.Frame):
                 text=text,
                 command=cmd,
                 corner_radius=CORNER_RADIUS,
-                font=(FONT_MEDIUM, 16),
-                height=60,
+                height=44,
             )
             btn.grid(row=0, column=i, padx=(0, 12) if i < 3 else 0, sticky="ew")
             actions_frame.grid_columnconfigure(i, weight=1)
@@ -127,7 +126,7 @@ class MainPage(tk.Frame):
             fg_color=BG_CARD,
             border_color=BORDER,
             border_width=1,
-            corner_radius=12,
+            corner_radius=10,
             cursor="hand2"
         )
 
@@ -153,7 +152,7 @@ class MainPage(tk.Frame):
         count_lbl = ctk.CTkLabel(
             top_row,
             text=count,
-            font=(FONT_FAMILY, 28, "bold"),
+            font=(FONT_FAMILY, 24, "bold"),
             fg_color="transparent",
             text_color=TEXT_COLOR
         )
@@ -163,25 +162,25 @@ class MainPage(tk.Frame):
         label_lbl = ctk.CTkLabel(
             inner,
             text=label,
-            font=(FONT_FAMILY, 16),
+            font=(FONT_FAMILY, 14),
             fg_color="transparent",
             text_color=TEXT_MUTED
         )
-        label_lbl.pack(anchor="w", pady=(8, 4))
+        label_lbl.pack(anchor="w", pady=(6, 2))
 
         # Click link
         open_btn = ctk.CTkLabel(
             inner,
             text="Открыть →",
-            font=(FONT_FAMILY, 14),
+            font=(FONT_FAMILY, 12),
             fg_color="transparent",
             text_color=ACCENT,
             cursor="hand2",
         )
         open_btn.pack(anchor="w")
 
-        # Hover
-        hover_bg = "#F9FAFB"
+        # Hover — едва заметный, как у Linear
+        hover_bg = "#FAFAFA"
 
         def _set_bg(target_bg):
             card.configure(fg_color=target_bg)

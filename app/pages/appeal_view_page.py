@@ -137,7 +137,7 @@ class AppealViewPage(tk.Frame):
         entry = ctk.CTkEntry(
             parent, textvariable=self.form_vars[var_key],
             font=(FONT_FAMILY, 14),
-            fg_color="#F3F4F6" if readonly_always else ENTRY_BG, 
+            fg_color="#F4F4F5" if readonly_always else ENTRY_BG, 
             text_color=TEXT_MUTED if readonly_always else ENTRY_FG,
             border_color=ENTRY_BORDER, corner_radius=CORNER_RADIUS, height=40,
             state="readonly" if readonly_always else "normal",

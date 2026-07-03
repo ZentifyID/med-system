@@ -11,50 +11,51 @@ from app.widgets import apply_combobox_patch
 
 apply_combobox_patch()
 
-# Sidebar (white with right border)
-BG_SIDEBAR              = "#FFFFFF"
-BG_SIDEBAR_ITEM_HOVER   = "#F3F4F6"
-BG_SIDEBAR_ITEM_ACTIVE  = "#EEF2FF"   # soft indigo tint
+# ── Палитра в стиле Linear (light) ───────────────────────────────────
+# Sidebar: очень светлый серый, как у Linear, с тонкой правой границей
+BG_SIDEBAR              = "#FAFAFA"
+BG_SIDEBAR_ITEM_HOVER   = "#F0F0F1"
+BG_SIDEBAR_ITEM_ACTIVE  = "#ECECEE"   # активный пункт — серый, как в Linear
 
-# Content area
-BG_COLOR        = "#F7F8FA"   # very light warm grey
+# Content area: чисто белый
+BG_COLOR        = "#FFFFFF"
 BG_CARD         = "#FFFFFF"
-BG_COLOR_ALT    = "#F9FAFB"
+BG_COLOR_ALT    = "#FAFAFB"
 
-# Accent – soft indigo (matches Closure's purple/indigo active state)
-ACCENT          = "#4F46E5"
-ACCENT_HOVER    = "#4338CA"
-ACCENT_LIGHT    = "#EEF2FF"
+# Accent — фирменный индиго Linear
+ACCENT          = "#5E6AD2"
+ACCENT_HOVER    = "#5560C9"
+ACCENT_LIGHT    = "#F0F1FB"
 ACCENT_FG       = "#FFFFFF"
 
 # Text
-TEXT_COLOR      = "#111827"
-TEXT_MUTED      = "#6B7280"
-TEXT_SIDEBAR    = "#374151"
-TEXT_SIDEBAR_ACTIVE = "#4F46E5"
+TEXT_COLOR      = "#282A30"
+TEXT_MUTED      = "#8A8F98"
+TEXT_SIDEBAR    = "#3C3F44"
+TEXT_SIDEBAR_ACTIVE = "#18181B"
 
 # Form inputs
 ENTRY_BG        = "#FFFFFF"
-ENTRY_FG        = "#111827"
-ENTRY_BORDER    = "#D1D5DB"
-ENTRY_FOCUS     = "#4F46E5"
+ENTRY_FG        = "#282A30"
+ENTRY_BORDER    = "#DEDEE1"
+ENTRY_FOCUS     = "#5E6AD2"
 
 # Danger
 DANGER          = "#DC2626"
 DANGER_HOVER    = "#B91C1C"
 DANGER_FG       = "#FFFFFF"
 
-# Misc
-BORDER          = "#E5E7EB"
-SUCCESS         = "#059669"
+# Misc: границы тоньше и светлее, как у Linear
+BORDER          = "#E9E8EA"
+SUCCESS         = "#0F9D58"
 WARNING         = "#D97706"
 
 # Sidebar border (thin right edge)
-SIDEBAR_BORDER  = "#E5E7EB"
+SIDEBAR_BORDER  = "#E9E8EA"
 
-# Corner radius for customtkinter widgets
-CORNER_RADIUS       = 10
-MAIN_BUTTON_RADIUS  = 25
+# Corner radius: компактнее, как у Linear
+CORNER_RADIUS       = 8
+MAIN_BUTTON_RADIUS  = 8
 
 # Typography
 FONT_FAMILY = "Segoe UI"
@@ -79,7 +80,7 @@ class FlatButton(ctk.CTkFrame):
             self.text_col   = ACCENT_FG
         else:
             self.default_bg = "#FFFFFF"
-            self.hover_bg   = "#F3F4F6"
+            self.hover_bg   = "#F4F4F5"
             self.text_col   = TEXT_COLOR
 
         # Initialize Frame
@@ -87,8 +88,8 @@ class FlatButton(ctk.CTkFrame):
             master,
             fg_color=self.default_bg,
             corner_radius=kwargs.pop("corner_radius", CORNER_RADIUS),
-            height=kwargs.pop("height", 48),
-            width=kwargs.pop("width", 140),
+            height=kwargs.pop("height", 38),
+            width=kwargs.pop("width", 130),
             border_width=1 if not primary and not danger else 0,
             border_color=BORDER if not primary and not danger else None,
             cursor="hand2"
@@ -100,7 +101,7 @@ class FlatButton(ctk.CTkFrame):
         self.label = ctk.CTkLabel(
             self,
             text=text,
-            font=(FONT_MEDIUM, 15),
+            font=(FONT_MEDIUM, 13),
             text_color=self.text_col,
             fg_color="transparent"
         )
@@ -144,8 +145,8 @@ class SidebarButton(ctk.CTkFrame):
         super().__init__(
             master,
             fg_color="transparent",
-            corner_radius=CORNER_RADIUS,
-            height=kwargs.pop("height", 44),
+            corner_radius=6,
+            height=kwargs.pop("height", 34),
             cursor="hand2"
         )
         self.pack_propagate(False)
@@ -156,21 +157,21 @@ class SidebarButton(ctk.CTkFrame):
             self,
             text=icon if isinstance(icon, str) else "",
             image=icon if not isinstance(icon, str) else None,
-            width=24,
-            height=24,
+            width=22,
+            height=22,
             fg_color="transparent"
         )
-        self.icon_label.place(x=16, rely=0.5, anchor="w")
+        self.icon_label.place(x=12, rely=0.5, anchor="w")
 
         # Text Label
         self.text_label = ctk.CTkLabel(
             self,
             text=text,
-            font=(FONT_MEDIUM, 15),
+            font=(FONT_MEDIUM, 13),
             text_color=TEXT_SIDEBAR,
             fg_color="transparent"
         )
-        self.text_label.place(x=52, rely=0.5, anchor="w")
+        self.text_label.place(x=44, rely=0.5, anchor="w")
 
         # Bindings
         for w in [self, self.icon_label, self.text_label]:
@@ -193,23 +194,24 @@ class SidebarButton(ctk.CTkFrame):
     def set_active(self, active: bool) -> None:
         self._active = active
         if active:
+            # Как в Linear: активный пункт — серая подложка, жирный тёмный текст
             self.configure(fg_color=BG_SIDEBAR_ITEM_ACTIVE)
-            self.text_label.configure(text_color=TEXT_SIDEBAR_ACTIVE)
+            self.text_label.configure(text_color=TEXT_SIDEBAR_ACTIVE, font=(FONT_MEDIUM, 13, "bold"))
         else:
             self.configure(fg_color="transparent")
-            self.text_label.configure(text_color=TEXT_SIDEBAR)
+            self.text_label.configure(text_color=TEXT_SIDEBAR, font=(FONT_MEDIUM, 13))
 
 
 def setup_styles(root: tk.Tk) -> None:
     style = ttk.Style(root)
     style.theme_use("clam")
 
-    # ── Treeview (Tables) ──────────────────────────────────────────────────────
+    # ── Treeview (Tables) — компактные строки, как списки в Linear ────────────
     style.configure(
         "Treeview",
         background=BG_CARD,
         foreground=TEXT_COLOR,
-        rowheight=42,
+        rowheight=38,
         fieldbackground=BG_CARD,
         font=(FONT_FAMILY, 11),
         borderwidth=0,
@@ -217,12 +219,12 @@ def setup_styles(root: tk.Tk) -> None:
     )
     style.configure(
         "Treeview.Heading",
-        background="#F9FAFB",
+        background=BG_CARD,
         foreground=TEXT_MUTED,
         font=(FONT_MEDIUM, 10),
         borderwidth=0,
         relief="flat",
-        padding=(12, 10),
+        padding=(12, 8),
     )
     style.map(
         "Treeview",
@@ -231,21 +233,21 @@ def setup_styles(root: tk.Tk) -> None:
     )
     style.map(
         "Treeview.Heading",
-        background=[("active", "#F3F4F6")],
+        background=[("active", "#F4F4F5")],
     )
 
-    # ── Scrollbar ─────────────────────────────────────────────────────────────
+    # ── Scrollbar — тонкий и незаметный ──────────────────────────────────────
     style.configure(
         "Vertical.TScrollbar",
-        background="#D1D5DB",
-        troughcolor="#F9FAFB",
+        background="#E0E0E2",
+        troughcolor="#FFFFFF",
         borderwidth=0,
-        arrowsize=14,
+        arrowsize=12,
         relief="flat",
     )
     style.map(
         "Vertical.TScrollbar",
-        background=[("active", "#9CA3AF")],
+        background=[("active", "#C9C9CC")],
     )
 
     # ── Combobox ──────────────────────────────────────────────────────────────
@@ -268,15 +270,19 @@ def setup_styles(root: tk.Tk) -> None:
     )
 
 def show_toast(master: tk.Widget, message: str, type: str = "success") -> None:
-    if type == "success": bg_color = "#10B981"
-    elif type == "error": bg_color = "#EF4444"
-    elif type == "info": bg_color = "#3B82F6"
-    else: bg_color = "#374151"
-    
+    # В стиле Linear: тёмная плашка с цветной точкой-индикатором
+    if type == "success": dot = "#4CB782"
+    elif type == "error": dot = "#EB5757"
+    elif type == "info": dot = "#4EA7FC"
+    else: dot = "#8A8F98"
+
     toplevel = master.winfo_toplevel()
-    toast = ctk.CTkFrame(toplevel, fg_color=bg_color, corner_radius=8)
-    lbl = ctk.CTkLabel(toast, text=message, font=(FONT_FAMILY, 13, "bold"), text_color="#FFFFFF")
-    lbl.pack(padx=24, pady=12)
+    toast = ctk.CTkFrame(toplevel, fg_color="#292A2E", corner_radius=8)
+    row = tk.Frame(toast, bg="#292A2E")
+    row.pack(padx=16, pady=10)
+    tk.Label(row, text="●", font=(FONT_FAMILY, 10), bg="#292A2E", fg=dot).pack(side=tk.LEFT, padx=(0, 8))
+    lbl = ctk.CTkLabel(row, text=message, font=(FONT_FAMILY, 12), text_color="#F7F8F8", fg_color="transparent")
+    lbl.pack(side=tk.LEFT)
     
     # Place relative to bottom right
     toast.place(relx=1.0, rely=1.0, x=-36, y=-36, anchor="se")
@@ -370,7 +376,7 @@ class ICDAutocomplete:
         if not self.popup:
             self.popup = tk.Toplevel(self.entry.winfo_toplevel())
             self.popup.wm_overrideredirect(True)
-            self.popup.configure(bg="#D1D5DB")
+            self.popup.configure(bg=BORDER)
             
             frame = tk.Frame(self.popup, bg="white")
             frame.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
@@ -379,11 +385,11 @@ class ICDAutocomplete:
             scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
             
             self.listbox = tk.Listbox(
-                frame, 
-                font=("Segoe UI", 11), 
-                bg="white", 
-                fg="#111827", 
-                selectbackground="#4F46E5", 
+                frame,
+                font=(FONT_FAMILY, 11),
+                bg="white",
+                fg=TEXT_COLOR,
+                selectbackground=ACCENT,
                 selectforeground="white",
                 bd=0, 
                 highlightthickness=0,
