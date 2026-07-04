@@ -82,7 +82,7 @@ class ICDReferenceDialog(ctk.CTkToplevel):
         self.table.column("name", width=460, anchor=tk.W, stretch=True)
 
         self.table.tag_configure("odd", background=BG_CARD)
-        self.table.tag_configure("even", background=BG_CARD)
+        self.table.tag_configure("even", background="#F5F5F6")
 
         sb = ttk.Scrollbar(inner, orient=tk.VERTICAL, command=self.table.yview)
         self.table.configure(yscrollcommand=sb.set)

@@ -11,49 +11,49 @@ from app.widgets import apply_combobox_patch
 
 apply_combobox_patch()
 
-# ── Палитра в стиле Linear (light) ───────────────────────────────────
-# Sidebar: очень светлый серый, как у Linear, с тонкой правой границей
-BG_SIDEBAR              = "#FAFAFA"
-BG_SIDEBAR_ITEM_HOVER   = "#F0F0F1"
-BG_SIDEBAR_ITEM_ACTIVE  = "#ECECEE"   # активный пункт — серый, как в Linear
+# ── Палитра в стиле macOS Golden Gate (light) ────────────────────────
+# Sidebar: светло-серый «материал», как в Finder
+BG_SIDEBAR              = "#E4E3E5"
+BG_SIDEBAR_ITEM_HOVER   = "#DBDADC"
+BG_SIDEBAR_ITEM_ACTIVE  = "#CFCED2"   # активный пункт — серая «пилюля»
 
 # Content area: чисто белый
 BG_COLOR        = "#FFFFFF"
 BG_CARD         = "#FFFFFF"
-BG_COLOR_ALT    = "#FAFAFB"
+BG_COLOR_ALT    = "#F5F5F6"
 
-# Accent — фирменный индиго Linear
-ACCENT          = "#5E6AD2"
-ACCENT_HOVER    = "#5560C9"
-ACCENT_LIGHT    = "#F0F1FB"
+# Accent — системный синий macOS
+ACCENT          = "#0A82FF"
+ACCENT_HOVER    = "#0071E3"
+ACCENT_LIGHT    = "#0A82FF"   # выделение строк — синее на всю ширину, как в Finder
 ACCENT_FG       = "#FFFFFF"
 
 # Text
-TEXT_COLOR      = "#282A30"
-TEXT_MUTED      = "#8A8F98"
-TEXT_SIDEBAR    = "#3C3F44"
-TEXT_SIDEBAR_ACTIVE = "#18181B"
+TEXT_COLOR      = "#1D1D1F"
+TEXT_MUTED      = "#86868B"
+TEXT_SIDEBAR    = "#2B2B2E"
+TEXT_SIDEBAR_ACTIVE = "#1D1D1F"
 
 # Form inputs
 ENTRY_BG        = "#FFFFFF"
-ENTRY_FG        = "#282A30"
-ENTRY_BORDER    = "#DEDEE1"
-ENTRY_FOCUS     = "#5E6AD2"
+ENTRY_FG        = "#1D1D1F"
+ENTRY_BORDER    = "#D6D6D8"
+ENTRY_FOCUS     = "#0A82FF"
 
-# Danger
-DANGER          = "#DC2626"
-DANGER_HOVER    = "#B91C1C"
+# Danger — системный красный macOS
+DANGER          = "#FF3B30"
+DANGER_HOVER    = "#D70015"
 DANGER_FG       = "#FFFFFF"
 
-# Misc: границы тоньше и светлее, как у Linear
-BORDER          = "#E9E8EA"
-SUCCESS         = "#0F9D58"
-WARNING         = "#D97706"
+# Misc
+BORDER          = "#E5E5E7"
+SUCCESS         = "#28A745"
+WARNING         = "#FF9500"
 
 # Sidebar border (thin right edge)
-SIDEBAR_BORDER  = "#E9E8EA"
+SIDEBAR_BORDER  = "#D5D4D6"
 
-# Corner radius: компактнее, как у Linear
+# Corner radius: мягкие скругления macOS
 CORNER_RADIUS       = 8
 MAIN_BUTTON_RADIUS  = 8
 
@@ -194,9 +194,9 @@ class SidebarButton(ctk.CTkFrame):
     def set_active(self, active: bool) -> None:
         self._active = active
         if active:
-            # Как в Linear: активный пункт — серая подложка, жирный тёмный текст
+            # Как в Finder: активный пункт — серая «пилюля», текст обычного веса
             self.configure(fg_color=BG_SIDEBAR_ITEM_ACTIVE)
-            self.text_label.configure(text_color=TEXT_SIDEBAR_ACTIVE, font=(FONT_MEDIUM, 13, "bold"))
+            self.text_label.configure(text_color=TEXT_SIDEBAR_ACTIVE, font=(FONT_MEDIUM, 13))
         else:
             self.configure(fg_color="transparent")
             self.text_label.configure(text_color=TEXT_SIDEBAR, font=(FONT_MEDIUM, 13))
@@ -206,12 +206,12 @@ def setup_styles(root: tk.Tk) -> None:
     style = ttk.Style(root)
     style.theme_use("clam")
 
-    # ── Treeview (Tables) — компактные строки, как списки в Linear ────────────
+    # ── Treeview (Tables) — как списки Finder: полосы + синее выделение ──────
     style.configure(
         "Treeview",
         background=BG_CARD,
         foreground=TEXT_COLOR,
-        rowheight=38,
+        rowheight=34,
         fieldbackground=BG_CARD,
         font=(FONT_FAMILY, 11),
         borderwidth=0,
@@ -228,12 +228,12 @@ def setup_styles(root: tk.Tk) -> None:
     )
     style.map(
         "Treeview",
-        background=[("selected", ACCENT_LIGHT)],
-        foreground=[("selected", TEXT_COLOR)],
+        background=[("selected", ACCENT)],
+        foreground=[("selected", "#FFFFFF")],
     )
     style.map(
         "Treeview.Heading",
-        background=[("active", "#F4F4F5")],
+        background=[("active", "#F5F5F6")],
     )
 
     # ── Scrollbar — тонкий и незаметный ──────────────────────────────────────

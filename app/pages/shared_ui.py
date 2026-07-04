@@ -81,9 +81,9 @@ def _make_table_card(parent: tk.Frame, columns: tuple, headings: dict, widths: d
         anchor = (anchors or {}).get(col, tk.W)
         tv.column(col, width=widths.get(col, 150), anchor=anchor, stretch=True)
 
-    # Как в Linear: строки без «зебры», обе белые (разделение — высотой строк)
+    # Как в Finder: чередующиеся полосы строк
     tv.tag_configure("odd", background=BG_CARD)
-    tv.tag_configure("even", background=BG_CARD)
+    tv.tag_configure("even", background="#F5F5F6")
 
     sb = ttk.Scrollbar(inner, orient=tk.VERTICAL, command=tv.yview)
     tv.configure(yscrollcommand=sb.set)

@@ -124,15 +124,15 @@ class App:
         tk.Label(
             logo_frame,
             text="⚕",
-            font=("Segoe UI", 20),
+            font=("Segoe UI", 16),
             bg=BG_SIDEBAR,
             fg=ACCENT,
-        ).pack(side=tk.LEFT, padx=(18, 8))
+        ).pack(side=tk.LEFT, padx=(16, 8))
 
         tk.Label(
             logo_frame,
             text="MedSystem",
-            font=("Segoe UI", 14, "bold"),
+            font=("Segoe UI", 13, "bold"),
             bg=BG_SIDEBAR,
             fg=TEXT_COLOR,
         ).pack(side=tk.LEFT)
@@ -662,4 +662,8 @@ def run_app() -> None:
 
     root = tk.Tk()
     App(root)
+
+    from app.window_effects import apply_window_effects
+    apply_window_effects(root)
+
     root.mainloop()
