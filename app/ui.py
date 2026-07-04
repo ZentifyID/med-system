@@ -457,4 +457,19 @@ class ICDAutocomplete:
 
     def _on_escape(self, event=None):
         self._hide_suggestions()
-        self.en
+        self.entry.focus_set()
+        return "break"
+
+    def _on_select(self, event=None):
+        if not self.listbox:
+            return
+        idx = self.listbox.curselection()
+        if idx:
+            selected_text = self.listbox.get(idx[0])
+            self.var.set(selected_text)
+            self._hide_suggestions()
+            self.entry.focus_set()
+            if hasattr(self.entry, "_entry"):
+                self.entry._entry.icursor(tk.END)
+            else:
+                self.entry.icursor(tk.END)
