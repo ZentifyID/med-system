@@ -381,7 +381,11 @@ class ICDAutocomplete:
             frame = tk.Frame(self.popup, bg="white")
             frame.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
             
-            scrollbar = tk.Scrollbar(frame, orient="vertical")
+            scrollbar = ctk.CTkScrollbar(
+                frame, orientation="vertical",
+                fg_color="transparent", button_color="#C9C9CC",
+                button_hover_color="#A9A9AD", width=12,
+            )
             scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
             
             self.listbox = tk.Listbox(

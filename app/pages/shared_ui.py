@@ -62,18 +62,19 @@ def _make_search_bar(parent: tk.Frame, search_var: tk.StringVar, filter_var: tk.
 
 
 def _make_table_card(parent: tk.Frame, columns: tuple, headings: dict, widths: dict, anchors: dict | None = None) -> tuple[tk.Frame, ttk.Treeview]:
-    # Modern card container for table
+    # Карточка таблицы с закруглениями, как в macOS
     card = ctk.CTkFrame(
         parent,
         fg_color=BG_CARD,
         border_color=BORDER,
         border_width=1,
-        corner_radius=10
+        corner_radius=12
     )
     card.pack(fill=tk.BOTH, expand=True, padx=32, pady=(0, 16))
 
+    # Отступы внутри карточки, чтобы закругления были видны (как в macOS)
     inner = tk.Frame(card, bg=BG_CARD)
-    inner.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+    inner.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
     tv = ttk.Treeview(inner, columns=columns, show="headings")
     for col in columns:
@@ -85,10 +86,15 @@ def _make_table_card(parent: tk.Frame, columns: tuple, headings: dict, widths: d
     tv.tag_configure("odd", background=BG_CARD)
     tv.tag_configure("even", background="#F5F5F6")
 
-    sb = ttk.Scrollbar(inner, orient=tk.VERTICAL, command=tv.yview)
+    # Скроллбар в стиле macOS: тонкий, закруглённый, без стрелок
+    sb = ctk.CTkScrollbar(
+        inner, orientation="vertical", command=tv.yview,
+        fg_color="transparent", button_color="#C9C9CC",
+        button_hover_color="#A9A9AD", width=14,
+    )
     tv.configure(yscrollcommand=sb.set)
     tv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-    sb.pack(side=tk.RIGHT, fill=tk.Y)
+    sb.pack(side=tk.RIGHT, fill=tk.Y, padx=(4, 0))
 
     def on_right_click(event):
         item = tv.identify_row(event.y)
@@ -105,7 +111,7 @@ def _make_table_card(parent: tk.Frame, columns: tuple, headings: dict, widths: d
             menu.tk_popup(event.x_root, event.y_root)
 
     tv.bind("<Button-3>", on_right_click)
-    
+
     return card, tv
 
 

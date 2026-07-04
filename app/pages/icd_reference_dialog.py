@@ -72,7 +72,7 @@ class ICDReferenceDialog(ctk.CTkToplevel):
         card.pack(fill=tk.BOTH, expand=True, padx=24, pady=(0, 16))
 
         inner = tk.Frame(card, bg=BG_CARD)
-        inner.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        inner.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         self.table = ttk.Treeview(inner, columns=("code", "name"), show="headings")
         self.table.heading("code", text="Код", command=lambda: self._sort_column("code", False))
@@ -84,10 +84,14 @@ class ICDReferenceDialog(ctk.CTkToplevel):
         self.table.tag_configure("odd", background=BG_CARD)
         self.table.tag_configure("even", background="#F5F5F6")
 
-        sb = ttk.Scrollbar(inner, orient=tk.VERTICAL, command=self.table.yview)
+        sb = ctk.CTkScrollbar(
+            inner, orientation="vertical", command=self.table.yview,
+            fg_color="transparent", button_color="#C9C9CC",
+            button_hover_color="#A9A9AD", width=14,
+        )
         self.table.configure(yscrollcommand=sb.set)
         self.table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        sb.pack(side=tk.RIGHT, fill=tk.Y)
+        sb.pack(side=tk.RIGHT, fill=tk.Y, padx=(4, 0))
 
         self.table.bind("<Double-1>", lambda e: self._open_edit())
 

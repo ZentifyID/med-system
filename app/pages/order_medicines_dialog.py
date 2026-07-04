@@ -30,7 +30,11 @@ class OrderMedicinesDialog(tk.Toplevel):
         outer = tk.Frame(self, bg=BG_COLOR)
         outer.pack(fill=tk.BOTH, expand=True, padx=24)
         canvas = tk.Canvas(outer, bg=BG_COLOR, highlightthickness=0)
-        sb = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        sb = ctk.CTkScrollbar(
+            outer, orientation="vertical", command=canvas.yview,
+            fg_color="transparent", button_color="#C9C9CC",
+            button_hover_color="#A9A9AD", width=14,
+        )
         self.scroll_frame = tk.Frame(canvas, bg=BG_COLOR)
         self.scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.create_window((0, 0), window=self.scroll_frame, anchor="nw", width=670)
