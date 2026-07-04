@@ -1,8 +1,11 @@
-"""Эффекты окна в стиле macOS: полупрозрачность и цвет заголовка.
+"""Эффекты окна в стиле macOS: цветной заголовок и рамка.
 
-Использует pywinstyles (только Windows 11). Если библиотеки нет или
-система не поддерживает — молча пропускается, приложение работает
-как обычно. Настройки — в app/config.py.
+Использует pywinstyles (Windows). Если библиотеки нет — молча
+пропускается. Настройка — в app/config.py.
+
+Примечание: acrylic/mica-размытие здесь сознательно НЕ используется:
+в tkinter оно делает светлые области окна прозрачными и сквозь
+приложение просвечивает содержимое экрана.
 """
 import sys
 import tkinter as tk
@@ -26,14 +29,5 @@ def apply_window_effects(root: tk.Tk) -> None:
         pywinstyles.change_header_color(root, BG_SIDEBAR)
         pywinstyles.change_border_color(root, SIDEBAR_BORDER)
         pywinstyles.change_title_color(root, "#1D1D1F")
-    except Exception:
-        pass
-
-    try:
-        # Acrylic-размытие фона окна — только Windows 11 (build 22000+)
-        if sys.getwindowsversion().build >= 22000:
-            pywinstyles.apply_style(root, "acrylic")
-            # Лёгкая полупрозрачность всего окна для эффекта «материала»
-            root.attributes("-alpha", config.WINDOW_ALPHA)
     except Exception:
         pass
