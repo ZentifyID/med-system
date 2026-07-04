@@ -207,6 +207,9 @@ def setup_styles(root: tk.Tk) -> None:
     style.theme_use("clam")
 
     # ── Treeview (Tables) — как списки Finder: полосы + синее выделение ──────
+    # Убираем рамку самого виджета: остаётся только область строк,
+    # таблица бесшовно сливается с белой карточкой
+    style.layout("Treeview", [("Treeview.treearea", {"sticky": "nswe"})])
     style.configure(
         "Treeview",
         background=BG_CARD,
@@ -216,6 +219,9 @@ def setup_styles(root: tk.Tk) -> None:
         font=(FONT_FAMILY, 11),
         borderwidth=0,
         relief="flat",
+        bordercolor=BG_CARD,
+        lightcolor=BG_CARD,
+        darkcolor=BG_CARD,
     )
     style.configure(
         "Treeview.Heading",
@@ -225,6 +231,9 @@ def setup_styles(root: tk.Tk) -> None:
         borderwidth=0,
         relief="flat",
         padding=(12, 8),
+        bordercolor=BG_CARD,
+        lightcolor=BG_CARD,
+        darkcolor=BG_CARD,
     )
     style.map(
         "Treeview",
@@ -233,7 +242,8 @@ def setup_styles(root: tk.Tk) -> None:
     )
     style.map(
         "Treeview.Heading",
-        background=[("active", "#F5F5F6")],
+        background=[("active", BG_CARD)],
+        relief=[("active", "flat"), ("pressed", "flat")],
     )
 
     # ── Scrollbar — тонкий и незаметный ──────────────────────────────────────
@@ -447,19 +457,4 @@ class ICDAutocomplete:
 
     def _on_escape(self, event=None):
         self._hide_suggestions()
-        self.entry.focus_set()
-        return "break"
-
-    def _on_select(self, event=None):
-        if not self.listbox:
-            return
-        idx = self.listbox.curselection()
-        if idx:
-            selected_text = self.listbox.get(idx[0])
-            self.var.set(selected_text)
-            self._hide_suggestions()
-            self.entry.focus_set()
-            if hasattr(self.entry, "_entry"):
-                self.entry._entry.icursor(tk.END)
-            else:
-                self.entry.icursor(tk.END)
+        self.en
